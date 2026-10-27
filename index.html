@@ -70,32 +70,8 @@
         <button class="chip">Basketball</button>
         <button class="chip">Tennis</button>
       </div>
-      <div class="match-list mt-16">
-        <div class="match-card">
-          <div class="match-meta"><span>Premier League</span> <span>Today 20:00</span></div>
-          <div class="match-teams">
-            <div class="team">Arsenal</div>
-            <div class="team">Man City</div>
-          </div>
-          <div class="odds-row">
-            <button class="odd-btn">1 <span>2.10</span></button>
-            <button class="odd-btn">X <span>3.40</span></button>
-            <button class="odd-btn">2 <span>2.80</span></button>
-          </div>
-        </div>
-        <div class="match-card">
-          <div class="match-meta"><span>La Liga</span> <span>Tomorrow 22:00</span></div>
-          <div class="match-teams">
-            <div class="team">Real Madrid</div>
-            <div class="team">Barcelona</div>
-          </div>
-          <div class="odds-row">
-            <button class="odd-btn">1 <span>1.95</span></button>
-            <button class="odd-btn">X <span>3.80</span></button>
-            <button class="odd-btn">2 <span>3.20</span></button>
-          </div>
-        </div>
-      </div>
+      <!-- JS generates 100 matches here -->
+      <div class="match-list mt-16" id="homeMatchList"></div>
     </section>
 
     <!-- MY BETS -->
@@ -105,41 +81,61 @@
         <button class="chip active">Active</button>
         <button class="chip">Settled</button>
       </div>
-      <div class="mt-16 text-center muted mt-32">No bets placed yet.</div>
+      <div class="mt-16 text-center muted mt-32" id="myBetsList">No bets placed yet.</div>
     </section>
 
     <!-- PROMOTIONS -->
     <section id="section-promos" class="section">
       <h1 class="page-title">Tasks & Promotions</h1>
       <p class="muted small mb-16">Complete verification to claim your $9.00 bonus.</p>
+      
       <div class="promo-card">
         <div class="promo-header">
           <h3>Account Verification</h3>
           <span class="badge-gold">Reward: $9.00</span>
         </div>
+        
         <div class="task-list">
-          <div class="task-item completed">
+          <!-- TASK 1: PHONE -->
+          <div class="task-item" id="task1">
             <div class="task-icon">📱</div>
             <div class="task-info"><h4>Verify Phone Number</h4><p>We need to confirm your phone.</p></div>
-            <button class="btn-small btn-outline" disabled>Done</button>
+            <button class="btn-small btn-outline" id="btnTask1" onclick="completeTask(1)">Verify</button>
           </div>
-          <div class="task-item">
+          
+          <!-- TASK 2: COUNTRY -->
+          <div class="task-item" id="task2">
             <div class="task-icon">🌍</div>
             <div class="task-info"><h4>Select Country</h4><p>Where do you belong?</p></div>
-            <select class="task-select"><option>Kenya</option><option>Nigeria</option></select>
+            <select class="task-select" id="task2Select" onchange="completeTask(2)">
+              <option value="">Select...</option>
+              <option value="Kenya">Kenya</option>
+              <option value="Nigeria">Nigeria</option>
+              <option value="Uganda">Uganda</option>
+            </select>
           </div>
-          <div class="task-item">
+
+          <!-- TASK 3: ROBOT PHOTO -->
+          <div class="task-item" id="task3">
             <div class="task-icon">🤖</div>
-            <div class="task-info"><h4>Are you a robot?</h4><p>Take a photo or upload to verify.</p></div>
-            <button class="btn-small btn-outline">Upload</button>
+            <div class="task-info"><h4>Are you a robot?</h4><p>Take a photo to verify.</p></div>
+            <input type="file" id="photoInput" accept="image/*" capture="user" style="display:none;" onchange="completeTask(3)">
+            <button class="btn-small btn-outline" onclick="document.getElementById('photoInput').click()">Upload</button>
           </div>
-          <div class="task-item">
+
+          <!-- TASK 4: OTP -->
+          <div class="task-item" id="task4">
             <div class="task-icon">🔐</div>
-            <div class="task-info"><h4>Confirm OTP</h4><p>Enter the 4-digit code shown below.</p><div class="otp-display">4829</div></div>
-            <input type="number" class="task-input" placeholder="Enter OTP" maxlength="4">
+            <div class="task-info">
+              <h4>Confirm OTP</h4>
+              <p>Enter the 4-digit code shown below.</p>
+              <div class="otp-display">4829</div>
+            </div>
+            <input type="number" class="task-input" id="task4Input" placeholder="Enter OTP" maxlength="4" oninput="completeTask(4)">
           </div>
         </div>
-        <button class="btn-gold mt-16" id="claimBonusBtn">Claim $9.00</button>
+        
+        <button class="btn-gold mt-16" id="claimBonusBtn" disabled>Complete Tasks to Claim</button>
       </div>
     </section>
 
@@ -166,7 +162,7 @@
         </div>
         <div class="profile-info">
           <h3 id="accName">My Account</h3>
-          <p class="muted" id="accPhone">0708520095</p>
+          <p class="muted" id="accPhone">Loading...</p>
         </div>
         <div class="verified-badge">✓ Verified</div>
       </div>
@@ -255,16 +251,31 @@
       </div>
     </section>
 
-    <!-- ADMIN (HIDDEN) -->
+    <!-- ADMIN -->
     <section id="section-admin" class="section">
       <h1 class="page-title">Admin Dashboard</h1>
-      <div style="background:var(--bg-card); padding:24px; border-radius:16px; text-align:center;">
-        <p class="muted">Admin tools will load here.</p>
-        <p class="small mt-16">(Backend Cloud Functions required to approve requests)</p>
+      
+      <div class="chip-row mb-16">
+        <button class="chip active" id="tabDeposits" onclick="loadAdminData('deposits')">Deposits</button>
+        <button class="chip" id="tabWithdrawals" onclick="loadAdminData('withdrawals')">Withdrawals</button>
+      </div>
+
+      <div id="adminList" style="display: flex; flex-direction: column; gap: 12px;">
+        <p class="muted text-center">Loading requests...</p>
       </div>
     </section>
 
   </main>
+
+  <!-- GAME MODAL (Popup for casino games) -->
+  <div id="gameModal" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(6,9,19,0.98); z-index:9999; display:flex; flex-direction:column; padding:20px; text-align:center; overflow-y:auto;">
+    <h2 id="gameTitle" style="color:var(--gold); margin-bottom:20px; font-size:1.8rem;">Game</h2>
+    
+    <div id="gameArea" style="flex:1; display:flex; flex-direction:column; justify-content:center; align-items:center; width:100%; max-width:400px; margin:0 auto;">
+    </div>
+
+    <button class="btn-submit-proof" onclick="closeGame()" style="margin-top:20px; width:100%; max-width:400px; align-self:center;">Close Game</button>
+  </div>
 
   <!-- BOTTOM NAVIGATION -->
   <nav class="bottom-nav" id="bottomNav">
@@ -277,4 +288,4 @@
 
   <script type="module" src="js/app.js"></script>
 </body>
-  </html>
+                             </html>
