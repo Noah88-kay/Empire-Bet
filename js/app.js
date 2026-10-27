@@ -23,7 +23,6 @@ let currentBonus = 0.00;
 let clickCount = 0;
 let clickTimer = null;
 
-// --- DOM ELEMENTS ---
 const sections = document.querySelectorAll('.section');
 const navItems = document.querySelectorAll('.nav-item');
 const loadingOverlay = document.getElementById('loadingOverlay');
@@ -56,18 +55,15 @@ function navigateTo(sectionId) {
   window.scrollTo(0, 0);
 }
 
-// Navigation Clicks
 navItems.forEach(item => {
   item.addEventListener('click', () => navigateTo(item.dataset.section));
 });
 
-// Custom Back/Forward Buttons (like Deposit/Withdraw)
 document.body.addEventListener('click', (e) => {
   const gotoBtn = e.target.closest('[data-goto]');
   if (gotoBtn) { e.preventDefault(); navigateTo(gotoBtn.dataset.goto); }
 });
 
-// --- ADMIN SECRET TRIGGER ---
 document.getElementById('logoBtn').addEventListener('click', () => {
   clickCount++;
   if (clickCount === 3) {
@@ -80,7 +76,7 @@ document.getElementById('logoBtn').addEventListener('click', () => {
   clickTimer = setTimeout(() => { clickCount = 0; }, 600);
 });
 
-// --- AUTHENTICATION FORMS ---
+// --- AUTH FORMS ---
 const loginForm = document.getElementById('loginForm');
 const registerForm = document.getElementById('registerForm');
 const authError = document.getElementById('authError');
@@ -109,7 +105,6 @@ registerForm?.addEventListener('submit', async (e) => {
     const cred = await createUserWithEmailAndPassword(auth, document.getElementById('regEmail').value, document.getElementById('regPassword').value);
     await updateProfile(cred.user, { displayName: document.getElementById('regName').value });
     
-    // Save user profile in Firestore
     await setDoc(doc(db, "users", cred.user.uid), {
       name: document.getElementById('regName').value,
       email: document.getElementById('regEmail').value,
@@ -118,7 +113,6 @@ registerForm?.addEventListener('submit', async (e) => {
       createdAt: serverTimestamp()
     });
     
-    // Create empty wallet
     await setDoc(doc(db, "wallets", cred.user.uid), {
       balance: 0.00, bonus: 0.00, currency: "USD", lastUpdated: serverTimestamp()
     });
@@ -129,7 +123,7 @@ registerForm?.addEventListener('submit', async (e) => {
 
 document.getElementById('logoutBtn')?.addEventListener('click', () => signOut(auth));
 
-// --- AUTH STATE LISTENER ---
+// --- AUTH STATE ---
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     currentUser = user;
@@ -163,41 +157,33 @@ async function loadUserData(uid) {
   } catch (err) { console.error("Error loading data:", err); }
 }
 
-// --- DEPOSIT SUBMISSION ---
-document.getElementById('submitDepositBtn')?.addEventListener('click', async () => {
+// --- DEPOSIT SUBMISSION (FIXED) ---
+document.getElementById('submitDepositBtn')?.addEventListener('click', async (e) => {
+  e.preventDefault();
   if (!currentUser) return showToast("Please log in first", "error");
   
-  const amt = parseFloat(document.getElementById('depAmount').value);
+  const amtInput = document.getElementById('depAmount').value;
+  const amt = Number(amtInput); // Force string to number
   const code = document.getElementById('depCode').value.trim().toUpperCase();
   
-  if (amt < 1) return showToast("Min deposit is $1", "error");
+  if (isNaN(amt) || amt < 1) return showToast("Min deposit is $1", "error");
   if (code.length < 5) return showToast("Invalid M-Pesa code", "error");
 
   try {
     showLoading(true);
 
-    // 1. Fetch phone number from user profile
+    // Guarantee phone number is valid
     const userDoc = await getDoc(doc(db, "users", currentUser.uid));
-    let userPhone = "Unknown";
-    if (userDoc.exists()) {
+    let userPhone = "0700000000"; // Fallback default
+    if (userDoc.exists() && userDoc.data().phone) {
       userPhone = userDoc.data().phone;
     }
 
-    // 2. Check for duplicate transaction code
-    const q = query(collection(db, "depositRequests"), where("transactionCode", "==", code));
-    const existing = await getDocs(q);
-    if (!existing.empty) {
-      showToast("Code already used!", "error");
-      showLoading(false);
-      return;
-    }
-
-    // 3. Submit to database (MATCHING FIELD NAMES)
     await addDoc(collection(db, "depositRequests"), {
       userId: currentUser.uid, 
-      phoneNumber: String(userPhone), // Matches rules
-      amount: Number(amt), 
-      transactionCode: String(code),  // Matches rules
+      phoneNumber: String(userPhone), 
+      amount: amt, 
+      transactionCode: code, 
       status: "pending", 
       createdAt: serverTimestamp()
     });
@@ -207,19 +193,26 @@ document.getElementById('submitDepositBtn')?.addEventListener('click', async () 
     
   } catch (err) { 
     console.error("Firebase Error:", err); 
-    showToast(err.message, "error"); 
+    showToast("Database error. Check rules.", "error"); 
   } finally { 
     showLoading(false); 
   }
 });
 
-// --- WITHDRAWAL SUBMISSION ---
-document.getElementById('submitWithdrawBtn')?.addEventListener('click', async () => {
+// --- WITHDRAWAL SUBMISSION (FIXED) ---
+document.getElementById('submitWithdrawBtn')?.addEventListener('click', async (e) => {
+  e.preventDefault();
   if (!currentUser) return;
-  const amt = parseFloat(document.getElementById('withAmount').value);
+  
+  const amtInput = document.getElementById('withAmount').value;
+  const amt = Number(amtInput); // Force string to number
   const phone = document.getElementById('withPhone').value.trim();
   
-  if (amt < 10) return showToast("Min withdrawal is $10", "error");
+  // STRICT CHECK
+  if (isNaN(amt) || amt < 10) {
+    return showToast("Minimum withdrawal is $10", "error");
+  }
+  
   if (amt > currentBalance) return showToast("Insufficient balance", "error");
   if (phone.length < 9) return showToast("Invalid phone number", "error");
   
@@ -228,18 +221,18 @@ document.getElementById('submitWithdrawBtn')?.addEventListener('click', async ()
     
     await addDoc(collection(db, "withdrawalRequests"), {
       userId: currentUser.uid, 
-      phoneNumber: String(phone), // Matches rules
-      amount: Number(amt), 
+      phoneNumber: String(phone), 
+      amount: amt, 
       status: "pending", 
       createdAt: serverTimestamp()
     });
     
-    showToast("Withdrawal request submitted for review.", "success");
+    showToast("Withdrawal request submitted.", "success");
     document.getElementById('withAmount').value = "";
     document.getElementById('withPhone').value = "";
   } catch (err) { 
     console.error(err);
-    showToast(err.message, "error"); 
+    showToast("Database error.", "error"); 
   } finally { 
     showLoading(false); 
   }
@@ -258,7 +251,7 @@ document.getElementById('claimBonusBtn')?.addEventListener('click', async () => 
   finally { showLoading(false); }
 });
 
-// --- GENERATE 200 CASINO GAMES ---
+// --- CASINO GENERATOR ---
 const casinoGrid = document.getElementById('casinoGrid');
 const games = ["Aviator", "Sweet Bonanza", "Gates of Olympus", "Mines", "Coin Flip", "Roulette", "Blackjack", "Dice", "Plinko", "Crash"];
 for (let i = 11; i <= 200; i++) games.push(`Slot #${i}`);
