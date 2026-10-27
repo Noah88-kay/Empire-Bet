@@ -23,7 +23,7 @@ let currentBonus = 0.00;
 let clickCount = 0;
 let clickTimer = null;
 
-// DOM Elements
+// --- DOM ELEMENTS ---
 const sections = document.querySelectorAll('.section');
 const navItems = document.querySelectorAll('.nav-item');
 const loadingOverlay = document.getElementById('loadingOverlay');
@@ -56,10 +56,12 @@ function navigateTo(sectionId) {
   window.scrollTo(0, 0);
 }
 
+// Navigation Clicks
 navItems.forEach(item => {
   item.addEventListener('click', () => navigateTo(item.dataset.section));
 });
 
+// Custom Back/Forward Buttons (like Deposit/Withdraw)
 document.body.addEventListener('click', (e) => {
   const gotoBtn = e.target.closest('[data-goto]');
   if (gotoBtn) { e.preventDefault(); navigateTo(gotoBtn.dataset.goto); }
@@ -78,7 +80,7 @@ document.getElementById('logoBtn').addEventListener('click', () => {
   clickTimer = setTimeout(() => { clickCount = 0; }, 600);
 });
 
-// --- AUTH FORMS ---
+// --- AUTHENTICATION FORMS ---
 const loginForm = document.getElementById('loginForm');
 const registerForm = document.getElementById('registerForm');
 const authError = document.getElementById('authError');
@@ -163,7 +165,8 @@ async function loadUserData(uid) {
 
 // --- DEPOSIT SUBMISSION ---
 document.getElementById('submitDepositBtn')?.addEventListener('click', async () => {
-  if (!currentUser) return;
+  if (!currentUser) return showToast("Please log in first", "error");
+  
   const amt = parseFloat(document.getElementById('depAmount').value);
   const code = document.getElementById('depCode').value.trim().toUpperCase();
   
@@ -172,23 +175,42 @@ document.getElementById('submitDepositBtn')?.addEventListener('click', async () 
 
   try {
     showLoading(true);
-    // Check for duplicate code
-    const q = query(collection(db, "depositRequests"), where("code", "==", code));
-    if (!(await getDocs(q)).empty) return showToast("Code already used!", "error");
 
-    // Submit to database
+    // 1. Fetch phone number from user profile
+    const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+    let userPhone = "Unknown";
+    if (userDoc.exists()) {
+      userPhone = userDoc.data().phone;
+    }
+
+    // 2. Check for duplicate transaction code
+    const q = query(collection(db, "depositRequests"), where("transactionCode", "==", code));
+    const existing = await getDocs(q);
+    if (!existing.empty) {
+      showToast("Code already used!", "error");
+      showLoading(false);
+      return;
+    }
+
+    // 3. Submit to database (MATCHING FIELD NAMES)
     await addDoc(collection(db, "depositRequests"), {
-      userId: currentUser.uid,
-      phone: document.getElementById('accPhone').textContent,
-      amount: amt, 
-      code: code, 
+      userId: currentUser.uid, 
+      phoneNumber: String(userPhone), // Matches rules
+      amount: Number(amt), 
+      transactionCode: String(code),  // Matches rules
       status: "pending", 
       createdAt: serverTimestamp()
     });
+    
     showToast("Waiting for approval! Deposit submitted.", "success");
     document.getElementById('depCode').value = "";
-  } catch (err) { showToast(err.message, "error"); } 
-  finally { showLoading(false); }
+    
+  } catch (err) { 
+    console.error("Firebase Error:", err); 
+    showToast(err.message, "error"); 
+  } finally { 
+    showLoading(false); 
+  }
 });
 
 // --- WITHDRAWAL SUBMISSION ---
@@ -203,18 +225,24 @@ document.getElementById('submitWithdrawBtn')?.addEventListener('click', async ()
   
   try {
     showLoading(true);
+    
     await addDoc(collection(db, "withdrawalRequests"), {
       userId: currentUser.uid, 
-      phone: phone, 
-      amount: amt, 
+      phoneNumber: String(phone), // Matches rules
+      amount: Number(amt), 
       status: "pending", 
       createdAt: serverTimestamp()
     });
+    
     showToast("Withdrawal request submitted for review.", "success");
     document.getElementById('withAmount').value = "";
     document.getElementById('withPhone').value = "";
-  } catch (err) { showToast(err.message, "error"); } 
-  finally { showLoading(false); }
+  } catch (err) { 
+    console.error(err);
+    showToast(err.message, "error"); 
+  } finally { 
+    showLoading(false); 
+  }
 });
 
 // --- CLAIM BONUS ---
