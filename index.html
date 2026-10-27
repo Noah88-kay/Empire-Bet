@@ -1,1 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b1120">
+  <title>Empire Bet</title>
+  <style>
+    :root {
+      --bg: #0b1120;
+      --card: #1e293b;
+      --green: #00e676;
+      --gold: #f59e0b;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --border: #334155;
+    }
 
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    button, input, select {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 850px;
+      margin: auto;
+      padding: 16px;
+    }
+        header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: #0b1120;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+    }
+
+    .logo {
+      color: var(--gold);
+      font-size: 23px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .wallet {
+      background: var(--card);
+      padding: 9px 12px;
+      border-radius: 10px;
+      font-size: 13px;
+    }
+
+    nav {
+      display: flex;
+      gap: 7px;
+      padding: 0 12px 12px;
+      overflow-x: auto;
+    }
+
+    nav button {
+      flex: 1;
+      min-width: 75px;
+      padding: 10px 8px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      color: var(--text);
+      background: var(--card);
+    }
+
+    nav button.active {
+      color: #06130c;
+      background: var(--green);
+      font-weight: bold;
+    }
+
+    h1 {
+      font-size: 25px;
+    }
+
+    h2 {
+      font-size: 19px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+
+    .muted {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .green {
+      color: var(--green);
+    }
+
+    .gold {
+      color: var(--gold);
+    }
+
+    .btn {
+      border: 0;
+      border-radius: 9px;
+      padding: 12px 14px;
+      background: var(--green);
+      color: #06130c;
+      font-weight: bold;
+    }
+
+    .btn-secondary {
+      background: #334155;
+      color: white;
+    }
+
+    .btn-gold {
+      background: var(--gold);
+      color: #111827;
+    }
+
+    .full {
+      width: 100%;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 12px;
+      margin: 7px 0 12px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: #0f172a;
+      color: white;
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .row > * {
+      flex: 1;
+    }
+
+    .match {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .odds {
+      background: #334155;
+      color: var(--green);
+      padding: 10px;
+      border: 1px solid #475569;
+      border-radius: 8px;
+      min-width: 58px;
+      font-weight: bold;
+    }
+
+    .notice {
+      background: #172554;
+      border: 1px solid #1d4ed8;
+      padding: 12px;
+      border-radius: 9px;
+      margin-bottom: 14px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .status {
+      margin-top: 10px;
+      color: var(--green);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    footer {
+      text-align: center;
+      color: var(--muted);
+      padding: 24px 10px;
+      font-size: 12px;
+    }
+  </style>
+</head>
+  <body>
+  <header>
+    <div class="topbar">
+      <div class="logo" id="logo">👑 EMPIRE BET</div>
+      <div class="wallet">
+        Wallet: <strong class="green">$0.00</strong>
+        <br>
+        <span class="muted">Demo balance</span>
+      </div>
+    </div>
+
+    <nav>
+      <button class="active" data-page="home">Home</button>
+      <button data-page="sports">Sports</button>
+      <button data-page="casino">Casino</button>
+      <button data-page="promotions">Promos</button>
+      <button data-page="account">Account</button>
+    </nav>
+  </header>
+
+  <main class="container">
+    <div class="notice">
+      <strong>Demo website:</strong> Sample matches, odds, games and balances
+      are for demonstration only. No real bets or money transfers are processed.
+    </div>
+
+    <section id="home" class="page">
+      <h1>Welcome to <span class="gold">Empire Bet</span></h1>
+      <p class="muted">Your sports and entertainment destination.</p>
+
+      <div class="card">
+        <h2>⚽ Sports Betting</h2>
+        <p class="muted">Explore sample matches and practice selecting odds.</p>
+        <button class="btn full" onclick="showPage('sports')">
+          Explore Sports
+        </button>
+      </div>
+
+      <div class="card">
+        <h2>🎰 Casino</h2>
+        <p class="muted">Explore demonstration casino games.</p>
+        <button class="btn btn-gold full" onclick="showPage('casino')">
+          Explore Casino
+        </button>
+      </div>
+
+      <div class="card">
+        <h2>🎁 Promotions</h2>
+        <p class="muted">View the promotion task interface.</p>
+        <button class="btn full" onclick="showPage('promotions')">
+          View Promotions
+        </button>
+      </div>
+    </section>
+        <section id="sports" class="page hidden">
+      <h1>⚽ Sports</h1>
+      <p class="muted">Sample matches only — odds are not live.</p>
+
+      <div class="card">
+        <h2>Football</h2>
+
+        <div class="match">
+          <div>
+            <strong>Team A vs Team B</strong>
+            <p class="muted">Demo match</p>
+          </div>
+          <div class="row">
+            <button class="odds" onclick="selectBet('Team A', 1.80)">1.80</button>
+            <button class="odds" onclick="selectBet('Draw', 3.20)">3.20</button>
+            <button class="odds" onclick="selectBet('Team B', 2.10)">2.10</button>
+          </div>
+        </div>
+
+        <div class="match">
+          <div>
+            <strong>Team C vs Team D</strong>
+            <p class="muted">Demo match</p>
+          </div>
+          <div class="row">
+            <button class="odds" onclick="selectBet('Team C', 1.65)">1.65</button>
+            <button class="odds" onclick="selectBet('Draw', 3.40)">3.40</button>
+            <button class="odds" onclick="selectBet('Team D', 2.50)">2.50</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Demo Bet Slip</h2>
+        <p id="selectedBet" class="muted">Choose an odd above to add a selection.</p>
+        <label for="stake">Practice stake (KSh)</label>
+        <input id="stake" type="number" min="1" placeholder="Enter practice stake">
+        <button class="btn full" onclick="calculateBet()">Calculate Demo Return</button>
+        <p id="betResult" class="status"></p>
+      </div>
+    </section>
+
+    <section id="casino" class="page hidden">
+      <h1>🎰 Casino</h1>
+      <p class="muted">These are demonstration game cards, not playable real-money games.</p>
+
+      <div class="card">
+        <h2>🎡 Lucky Wheel</h2>
+        <p class="muted">A future game integration can go here.</p>
+        <button class="btn full" onclick="demoMessage('Lucky Wheel')">Open Demo</button>
+      </div>
+
+      <div class="card">
+        <h2>💎 Treasure Hunt</h2>
+        <p class="muted">A future game integration can go here.</p>
+        <button class="btn full" onclick="demoMessage('Treasure Hunt')">Open Demo</button>
+      </div>
+
+      <div class="card">
+        <h2>🃏 Card Games</h2>
+        <p class="muted">A future game integration can go here.</p>
+        <button class="btn full" onclick="demoMessage('Card Games')">Open Demo</button>
+      </div>
+
+      <p id="casinoStatus" class="status"></p>
+    </section>
+        <section id="promotions" class="page hidden">
+      <h1>🎁 Promotions</h1>
+
+      <div class="card">
+        <h2 class="gold">Welcome Promotion — $9</h2>
+        <p class="muted">
+          This is a proposed promotion interface. Eligibility and reward
+          payments must be verified securely by the website backend.
+        </p>
+
+        <label for="promoPhone">Phone number</label>
+        <input id="promoPhone" type="tel" placeholder="e.g. 07XXXXXXXX">
+
+        <label for="promoCountry">Country</label>
+        <select id="promoCountry">
+          <option value="">Select country</option>
+          <option value="Kenya">Kenya</option>
+          <option value="Other">Other</option>
+        </select>
+
+        <label for="promoPhoto">Photo (if required for verification)</label>
+        <input id="promoPhoto" type="file" accept="image/*">
+
+        <p class="muted">Demo check code — this is not secure identity verification.</p>
+        <div class="row">
+          <div class="card">
+            <strong id="promoCode" class="gold">----</strong>
+          </div>
+          <button class="btn btn-secondary" onclick="generateCode()">New Code</button>
+        </div>
+
+        <label for="promoCodeInput">Enter the code shown above</label>
+        <input id="promoCodeInput" inputmode="numeric" maxlength="4" placeholder="4-digit code">
+
+        <button class="btn full" onclick="submitPromo()">Submit Promotion Details</button>
+        <p id="promoStatus" class="status"></p>
+      </div>
+    </section>
+
+    <section id="account" class="page hidden">
+      <h1>👤 My Account</h1>
+
+      <div class="card">
+        <h2>Sign In / Register</h2>
+        <p class="muted">Firebase Authentication will be connected in a later step.</p>
+        <label for="email">Email address</label>
+        <input id="email" type="email" placeholder="Enter email">
+
+        <label for="password">Password</label>
+        <input id="password" type="password" placeholder="Enter password">
+
+        <button class="btn full" onclick="authMessage()">Continue</button>
+        <p id="authStatus" class="status"></p>
+      </div>
+
+      <div class="card">
+        <h2>Deposit</h2>
+        <p>PayBill: <strong class="gold">714777</strong></p>
+        <p>Account number: <strong class="gold">440200289832</strong></p>
+        <p>Minimum deposit: <strong>KSh 130</strong></p>
+        <p class="muted">Proposed rate: KSh 130 = $1.00. Actual wallet credit requires verified payment records.</p>
+
+        <label for="depositAmount">Deposit amount (KSh)</label>
+        <input id="depositAmount" type="number" min="130" placeholder="Minimum 130">
+
+        <label for="depositCode">M-Pesa transaction code</label>
+        <input id="depositCode" placeholder="Enter transaction code">
+
+        <button class="btn full" onclick="paymentMessage('deposit')">Submit Demo Deposit Request</button>
+      </div>
+
+      <div class="card">
+        <h2>Withdraw</h2>
+        <p>Minimum withdrawal: <strong>$10 / KSh 1,300</strong></p>
+        <p>Processing fee: <strong>KSh 50</strong></p>
+        <p class="muted">Any fee must be verified from actual payment records. Submitting a code alone does not confirm payment or guarantee a withdrawal.</p>
+
+        <label for="withdrawPhone">M-Pesa phone number</label>
+        <input id="withdrawPhone" type="tel" placeholder="07XXXXXXXX">
+
+        <label for="withdrawAmount">Withdrawal amount (KSh)</label>
+        <input id="withdrawAmount" type="number" min="1300" placeholder="Minimum 1300">
+
+        <label for="feeCode">M-Pesa transaction code for fee</label>
+        <input id="feeCode" placeholder="Enter KSh 50 fee transaction code">
+
+        <button class="btn full" onclick="paymentMessage('withdrawal')">Submit Demo Withdrawal Request</button>
+        <p id="paymentStatus" class="status"></p>
+      </div>
+    </section>
+
+    <section id="admin" class="page hidden">
+      <h1>🔐 Admin Access</h1>
+      <div class="card">
+        <p class="muted">Admin authentication and permissions are not connected yet.</p>
+        <label for="adminEmail">Admin email</label>
+        <input id="adminEmail" type="email" placeholder="Admin email">
+        <label for="adminPassword">Password</label>
+        <input id="adminPassword" type="password" placeholder="Admin password">
+        <button class="btn full" onclick="adminMessage()">Sign In</button>
+        <p id="adminStatus" class="status"></p>
+        <button class="btn btn-secondary full" onclick="showPage('home')">Back to Home</button>
+      </div>
+    </section>
+        <footer>
+      Empire Bet © 2026 · Demo interface only · No real-money transactions
+    </footer>
+  </main>
+
+  <script>
+    let chosenSelection = null;
+    let chosenOdds = 0;
+    let logoTaps = 0;
+    let logoTapTimer;
+
+    function showPage(pageId) {
+      document.querySelectorAll(".page").forEach(page => {
+        page.classList.add("hidden");
+      });
+
+      const page = document.getElementById(pageId);
+      if (page) page.classList.remove("hidden");
+
+      document.querySelectorAll("nav button").forEach(button => {
+        button.classList.toggle("active", button.dataset.page === pageId);
+      });
+
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    document.querySelectorAll("nav button").forEach(button => {
+      button.addEventListener("click", () => showPage(button.dataset.page));
+    });
+
+    function selectBet(selection, odds) {
+      chosenSelection = selection;
+      chosenOdds = odds;
+      document.getElementById("selectedBet").textContent =
+        selection + " selected at demo odds " + odds;
+      document.getElementById("betResult").textContent = "";
+    }
+
+    function calculateBet() {
+      const stake = Number(document.getElementById("stake").value);
+      const result = document.getElementById("betResult");
+
+      if (!chosenSelection) {
+        result.textContent = "Please select demo odds first.";
+        return;
+      }
+
+      if (!Number.isFinite(stake) || stake <= 0) {
+        result.textContent = "Enter a practice stake greater than zero.";
+        return;
+      }
+
+      result.textContent =
+        "Demo selection: " + chosenSelection +
+        " · Estimated return: KSh " + (stake * chosenOdds).toFixed(2) +
+        ". No bet has been placed.";
+    }
+
+    function demoMessage(game) {
+      document.getElementById("casinoStatus").textContent =
+        game + " is a demo card. Real game integration is not connected.";
+    }
+
+    function generateCode() {
+      const code = String(Math.floor(1000 + Math.random() * 9000));
+      document.getElementById("promoCode").textContent = code;
+      document.getElementById("promoCodeInput").value = "";
+      document.getElementById("promoStatus").textContent = "";
+    }
+
+    function submitPromo() {
+      const phone = document.getElementById("promoPhone").value.trim();
+      const country = document.getElementById("promoCountry").value;
+      const enteredCode = document.getElementById("promoCodeInput").value.trim();
+      const displayedCode = document.getElementById("promoCode").textContent;
+      const status = document.getElementById("promoStatus");
+
+      if (!phone || !country) {
+        status.textContent = "Please enter your phone number and select a country.";
+        return;
+      }
+
+      if (enteredCode !== displayedCode || displayedCode === "----") {
+        status.textContent = "Please enter the displayed demo code correctly.";
+        return;
+      }
+
+      status.textContent =
+        "Demo form checked. No reward has been credited. Secure verification and server-side reward approval must be connected first.";
+    }
+
+    function authMessage() {
+      document.getElementById("authStatus").textContent =
+        "Firebase sign-in is not connected yet. No account has been created or signed in.";
+    }
+
+    function paymentMessage(type) {
+      const status = document.getElementById("paymentStatus");
+
+      if (type === "deposit") {
+        const amount = Number(document.getElementById("depositAmount").value);
+        const code = document.getElementById("depositCode").value.trim();
+
+        if (!Number.isFinite(amount) || amount < 130 || !code) {
+          status.textContent = "Enter at least KSh 130 and your M-Pesa transaction code.";
+          return;
+        }
+
+        status.textContent =
+          "Demo deposit form checked. No payment has been verified and no wallet balance has changed.";
+      } else {
+        const phone = document.getElementById("withdrawPhone").value.trim();
+        const amount = Number(document.getElementById("withdrawAmount").value);
+        const code = document.getElementById("feeCode").value.trim();
+
+        if (!phone || !Number.isFinite(amount) || amount < 1300 || !code) {
+          status.textContent =
+            "Enter your phone number, a withdrawal amount of at least KSh 1,300, and the fee transaction code.";
+          return;
+        }
+
+        status.textContent =
+          "Demo withdrawal form checked. The KSh 50 fee and available balance have not been verified. No withdrawal has been sent.";
+      }
+    }
+
+    function adminMessage() {
+      document.getElementById("adminStatus").textContent =
+        "Admin sign-in is not connected. Secure Firebase authentication and server-verified admin permissions are required.";
+    }
+
+    document.getElementById("logo").addEventListener("click", () => {
+      logoTaps++;
+
+      clearTimeout(logoTapTimer);
+      logoTapTimer = setTimeout(() => {
+        logoTaps = 0;
+      }, 900);
+
+      if (logoTaps >= 3) {
+        logoTaps = 0;
+        showPage("admin");
+      }
+    });
+
+    generateCode();
+  </script>
+</body>
+</html>
