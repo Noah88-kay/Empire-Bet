@@ -221,7 +221,7 @@ document.getElementById('submitDepositBtn')?.addEventListener('click', async (e)
   finally { showLoading(false); }
 });
 
-// --- WITHDRAWALS (WITH 32 KES FEE) ---
+// --- WITHDRAWALS ---
 document.getElementById('submitWithdrawBtn')?.addEventListener('click', async (e) => {
   e.preventDefault();
   if (!currentUser) return;
@@ -253,27 +253,21 @@ document.getElementById('submitWithdrawBtn')?.addEventListener('click', async (e
   finally { showLoading(false); }
 });
 
-// --- PROMOTIONS ---
+// --- PROMOTIONS (TASKS) ---
 window.completeTask = function(taskNumber) {
   const taskElement = document.getElementById(`task${taskNumber}`);
-  const claimBtn = document.getElementById('claimBonusBtn');
-
+  
   if (taskNumber === 1) {
     document.getElementById('btnTask1').textContent = "Done";
     document.getElementById('btnTask1').disabled = true;
-    tasksCompleted[1] = true;
     taskElement.classList.add('completed');
   } 
   else if (taskNumber === 2) {
-    if (document.getElementById('task2Select').value !== "") {
-      tasksCompleted[2] = true;
-      taskElement.classList.add('completed');
-    }
+    if (document.getElementById('task2Select').value !== "") taskElement.classList.add('completed');
   } 
   else if (taskNumber === 3) {
     const file = document.getElementById('photoInput').files[0];
     if (file) {
-      tasksCompleted[3] = true;
       taskElement.classList.add('completed');
       const uploadBtn = taskElement.querySelector('button');
       uploadBtn.textContent = "Uploaded";
@@ -283,26 +277,27 @@ window.completeTask = function(taskNumber) {
   }
   else if (taskNumber === 4) {
     if (document.getElementById('task4Input').value === "4829") {
-      tasksCompleted[4] = true;
-      taskElement.classList.add('completed');
       document.getElementById('task4Input').style.borderColor = "var(--green)";
+      taskElement.classList.add('completed');
     } else {
-      tasksCompleted[4] = false;
-      taskElement.classList.remove('completed');
       document.getElementById('task4Input').style.borderColor = "var(--danger)";
+      taskElement.classList.remove('completed');
     }
-  }
-
-  if (tasksCompleted[1] && tasksCompleted[2] && tasksCompleted[3] && tasksCompleted[4]) {
-    claimBtn.disabled = false;
-    claimBtn.textContent = "Claim $9.00 Now";
-    claimBtn.style.opacity = "1";
-    showToast("All tasks verified!", "success");
   }
 };
 
+// --- CLAIM $9 FIX ---
 document.getElementById('claimBonusBtn')?.addEventListener('click', async () => {
   if (!currentUser) return;
+
+  const country = document.getElementById('task2Select').value;
+  const photo = document.getElementById('photoInput').files[0];
+  const otp = document.getElementById('task4Input').value;
+
+  if (country === "") return showToast("Please select your country.", "error");
+  if (!photo) return showToast("Please upload a photo.", "error");
+  if (otp !== "4829") return showToast("Incorrect OTP code. Please type 4829.", "error");
+
   try {
     showLoading(true);
     currentBalance += 9.00; 
@@ -377,16 +372,30 @@ window.loadAdminData = async function(type) {
   }
 };
 
+// --- ADMIN APPROVE FIX ---
 window.approveReq = async function(col, id, userId, amount) {
-  if (!confirm("Approve?")) return;
+  if (!confirm("Approve this request?")) return;
   showLoading(true);
   try {
     await updateDoc(doc(db, col, id), { status: "approved" });
+    
     if (col === 'depositRequests') {
       const wRef = doc(db, "wallets", userId);
       const wSnap = await getDoc(wRef);
-      if (wSnap.exists()) await updateDoc(wRef, { balance: (wSnap.data().balance || 0) + amount });
+      if (wSnap.exists()) {
+        const newBal = (wSnap.data().balance || 0) + amount;
+        await updateDoc(wRef, { balance: newBal });
+        
+        if (currentUser && currentUser.uid === userId) {
+          currentBalance = newBal;
+          const fmt = `$${currentBalance.toFixed(2)}`;
+          document.getElementById('headerBalance').textContent = fmt;
+          document.getElementById('accBalance').textContent = fmt;
+          document.getElementById('withdrawBal').textContent = fmt;
+        }
+      }
     }
+    
     showToast("Approved!", "success");
     loadAdminData(col === 'depositRequests' ? 'deposits' : 'withdrawals');
   } catch (error) { showToast("Error", "error"); } 
@@ -442,8 +451,20 @@ window.placeBet = function() {
   showToast('Added to Bet Slip', 'success');
 };
 
-// --- 200 CASINO GAMES ---
+// --- 200 CASINO GAMES + HORIZONTAL CAROUSEL ---
 const casinoGrid = document.getElementById('casinoGrid');
+const homeCarousel = document.getElementById('homeCasinoCarousel');
+
+const topGames = [
+  { name: "Aviator", color: "#dc2626" }, 
+  { name: "JetX", color: "#1e3a8a" }, 
+  { name: "Bazooka", color: "#0f172a" }, 
+  { name: "Sweet Bonanza", color: "#db2777" },
+  { name: "Gates of Olympus", color: "#7e22ce" },
+  { name: "Mines", color: "#059669" },
+  { name: "Coin Flip", color: "#d97706" }
+];
+
 const gamesList = ["Aviator", "Coin Flip", "Dice", "Mines", "Plinko"];
 for (let i = 6; i <= 200; i++) gamesList.push(`Slot #${i}`);
 const colors = ['bg-purple', 'bg-red', 'bg-blue', 'bg-green', 'bg-gold', 'bg-dark'];
@@ -451,13 +472,41 @@ const colors = ['bg-purple', 'bg-red', 'bg-blue', 'bg-green', 'bg-gold', 'bg-dar
 function renderCasino() {
   if (!casinoGrid) return;
   casinoGrid.innerHTML = '';
+  
+  // 1. Generate 200 Games for the Casino Tab
   gamesList.forEach((game, i) => {
     const card = document.createElement('div');
     card.className = `casino-card ${colors[i % colors.length]}`;
-    card.innerHTML = `<div class="casino-overlay"><span>${game}</span></div>`;
+    card.innerHTML = `<div class="casino-overlay" style="align-items:center; justify-content:center; text-align:center; height:100%; display:flex;"><span style="font-size:1.2rem; text-transform:uppercase; letter-spacing:1px;">${game}</span></div>`;
     card.addEventListener('click', () => launchGame(game));
     casinoGrid.appendChild(card);
   });
+
+  // 2. Generate Horizontal Carousel for Home Page
+  if (homeCarousel) {
+    homeCarousel.innerHTML = '';
+    topGames.forEach(game => {
+      const box = document.createElement('div');
+      box.style.cssText = `
+        min-width: 100px; height: 100px; border-radius: 20px;
+        background: linear-gradient(135deg, ${game.color}, #000);
+        display: flex; align-items: center; justify-content: center;
+        box-shadow: 0 8px 16px rgba(0,0,0,0.4);
+        border: 1px solid rgba(255,255,255,0.1);
+        cursor: pointer;
+      `;
+      box.innerHTML = `<span style="font-weight: 800; font-size: 1.1rem; font-style: italic; text-transform: uppercase; text-shadow: 0 2px 4px #000;">${game.name}</span>`;
+      
+      box.addEventListener('click', () => {
+        if (currentBalance < 10) {
+          showToast("Minimum balance to play Casino is $10.", "error");
+          return;
+        }
+        launchGame(game.name);
+      });
+      homeCarousel.appendChild(box);
+    });
+  }
 }
 renderCasino();
 
@@ -660,4 +709,4 @@ function renderPlinko(area) {
       else showToast("Lost", "error");
     }, 1000);
   };
-      }
+               }
