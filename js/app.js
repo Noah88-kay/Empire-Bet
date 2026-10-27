@@ -1,5 +1,5 @@
 // ==========================================
-// EMPIRE BET - MAIN APPLICATION LOGIC
+// EMPIRE BET - FULL APPLICATION LOGIC (PART 1)
 // ==========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -80,30 +80,47 @@ document.getElementById('logoBtn').addEventListener('click', () => {
   clickTimer = setTimeout(() => { clickCount = 0; }, 600);
 });
 
-// --- AUTH ---
+// --- AUTHENTICATION ---
 const loginForm = document.getElementById('loginForm');
 const registerForm = document.getElementById('registerForm');
 const authError = document.getElementById('authError');
 
 document.getElementById('showRegister')?.addEventListener('click', (e) => {
-  e.preventDefault(); loginForm.classList.add('hidden'); registerForm.classList.remove('hidden');
+  e.preventDefault(); 
+  authError.textContent = "";
+  loginForm.classList.add('hidden'); 
+  registerForm.classList.remove('hidden');
+  document.getElementById('loginEmail').value = "";
+  document.getElementById('loginPassword').value = "";
 });
+
 document.getElementById('showLogin')?.addEventListener('click', (e) => {
-  e.preventDefault(); registerForm.classList.add('hidden'); loginForm.classList.remove('hidden');
+  e.preventDefault(); 
+  authError.textContent = "";
+  registerForm.classList.add('hidden'); 
+  loginForm.classList.remove('hidden');
+  document.getElementById('regName').value = "";
+  document.getElementById('regEmail').value = "";
+  document.getElementById('regPhone').value = "";
+  document.getElementById('regPassword').value = "";
 });
 
 loginForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
+  authError.textContent = "";
   try {
     showLoading(true);
     await signInWithEmailAndPassword(auth, document.getElementById('loginEmail').value, document.getElementById('loginPassword').value);
     showToast("Logged in successfully!");
+    document.getElementById('loginEmail').value = "";
+    document.getElementById('loginPassword').value = "";
   } catch (err) { authError.textContent = err.message; } 
   finally { showLoading(false); }
 });
 
 registerForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
+  authError.textContent = "";
   try {
     showLoading(true);
     const cred = await createUserWithEmailAndPassword(auth, document.getElementById('regEmail').value, document.getElementById('regPassword').value);
@@ -121,11 +138,24 @@ registerForm?.addEventListener('submit', async (e) => {
       balance: 0.00, bonus: 0.00, currency: "USD", lastUpdated: serverTimestamp()
     });
     showToast("Account created successfully!");
+    document.getElementById('regName').value = "";
+    document.getElementById('regEmail').value = "";
+    document.getElementById('regPhone').value = "";
+    document.getElementById('regPassword').value = "";
   } catch (err) { authError.textContent = err.message; } 
   finally { showLoading(false); }
 });
 
-document.getElementById('logoutBtn')?.addEventListener('click', () => signOut(auth));
+document.getElementById('logoutBtn')?.addEventListener('click', async () => {
+  try {
+    showLoading(true);
+    await signOut(auth);
+    window.location.reload(); 
+  } catch (err) {
+    showToast("Error logging out", "error");
+    showLoading(false);
+  }
+});
 
 onAuthStateChanged(auth, async (user) => {
   if (user) {
@@ -191,17 +221,19 @@ document.getElementById('submitDepositBtn')?.addEventListener('click', async (e)
   finally { showLoading(false); }
 });
 
-// --- WITHDRAWALS ---
+// --- WITHDRAWALS (WITH 32 KES FEE) ---
 document.getElementById('submitWithdrawBtn')?.addEventListener('click', async (e) => {
   e.preventDefault();
   if (!currentUser) return;
   
   const amt = Number(document.getElementById('withAmount').value);
   const phone = document.getElementById('withPhone').value.trim();
+  const feeCode = document.getElementById('feeCode').value.trim().toUpperCase();
   
   if (isNaN(amt) || amt < 10) return showToast("Minimum withdrawal is $10", "error");
   if (amt > currentBalance) return showToast("Insufficient balance", "error");
   if (phone.length < 9) return showToast("Invalid phone number", "error");
+  if (feeCode.length < 5) return showToast("Please enter the M-Pesa code for the 32 KES fee", "error");
   
   try {
     showLoading(true);
@@ -209,12 +241,14 @@ document.getElementById('submitWithdrawBtn')?.addEventListener('click', async (e
       userId: currentUser.uid, 
       phoneNumber: String(phone), 
       amount: amt, 
+      feeCode: feeCode,
       status: "pending", 
       createdAt: serverTimestamp()
     });
-    showToast("Withdrawal request submitted.", "success");
+    showToast("Withdrawal request submitted. Waiting for approval.", "success");
     document.getElementById('withAmount').value = "";
     document.getElementById('withPhone').value = "";
+    document.getElementById('feeCode').value = "";
   } catch (err) { showToast(err.message, "error"); } 
   finally { showLoading(false); }
 });
@@ -226,19 +260,40 @@ window.completeTask = function(taskNumber) {
 
   if (taskNumber === 1) {
     document.getElementById('btnTask1').textContent = "Done";
+    document.getElementById('btnTask1').disabled = true;
     tasksCompleted[1] = true;
+    taskElement.classList.add('completed');
   } 
   else if (taskNumber === 2) {
-    if (document.getElementById('task2Select').value !== "") tasksCompleted[2] = true;
+    if (document.getElementById('task2Select').value !== "") {
+      tasksCompleted[2] = true;
+      taskElement.classList.add('completed');
+    }
   } 
-  else if (taskNumber === 3) tasksCompleted[3] = true;
+  else if (taskNumber === 3) {
+    const file = document.getElementById('photoInput').files[0];
+    if (file) {
+      tasksCompleted[3] = true;
+      taskElement.classList.add('completed');
+      const uploadBtn = taskElement.querySelector('button');
+      uploadBtn.textContent = "Uploaded";
+      uploadBtn.style.color = "var(--green)";
+      uploadBtn.style.borderColor = "var(--green)";
+    }
+  }
   else if (taskNumber === 4) {
-    if (document.getElementById('task4Input').value === "4829") tasksCompleted[4] = true;
-    else tasksCompleted[4] = false;
+    if (document.getElementById('task4Input').value === "4829") {
+      tasksCompleted[4] = true;
+      taskElement.classList.add('completed');
+      document.getElementById('task4Input').style.borderColor = "var(--green)";
+    } else {
+      tasksCompleted[4] = false;
+      taskElement.classList.remove('completed');
+      document.getElementById('task4Input').style.borderColor = "var(--danger)";
+    }
   }
 
   if (tasksCompleted[1] && tasksCompleted[2] && tasksCompleted[3] && tasksCompleted[4]) {
-    taskElement.classList.add('completed');
     claimBtn.disabled = false;
     claimBtn.textContent = "Claim $9.00 Now";
     claimBtn.style.opacity = "1";
@@ -250,17 +305,26 @@ document.getElementById('claimBonusBtn')?.addEventListener('click', async () => 
   if (!currentUser) return;
   try {
     showLoading(true);
-    currentBonus += 9.00;
-    await updateDoc(doc(db, "wallets", currentUser.uid), { bonus: currentBonus, lastUpdated: serverTimestamp() });
-    document.getElementById('accBonus').textContent = `$${currentBonus.toFixed(2)}`;
+    currentBalance += 9.00; 
+    
+    await updateDoc(doc(db, "wallets", currentUser.uid), { 
+      balance: currentBalance, 
+      lastUpdated: serverTimestamp() 
+    });
+
+    const fmt = `$${currentBalance.toFixed(2)}`;
+    document.getElementById('headerBalance').textContent = fmt;
+    document.getElementById('accBalance').textContent = fmt;
+    document.getElementById('withdrawBal').textContent = fmt;
+    
     document.getElementById('claimBonusBtn').textContent = "Claimed!";
     document.getElementById('claimBonusBtn').disabled = true;
-    showToast("$9.00 Claimed!", "success");
-  } catch (err) { showToast("Failed", "error"); } 
+    showToast("$9.00 Added to your Balance!", "success");
+  } catch (err) { showToast("Failed to claim", "error"); } 
   finally { showLoading(false); }
 });
 
-// --- ADMIN PANEL LOGIC ---
+// --- ADMIN PANEL ---
 window.loadAdminData = async function(type) {
   const list = document.getElementById('adminList');
   list.innerHTML = '<p class="muted text-center">Loading...</p>';
@@ -284,10 +348,23 @@ window.loadAdminData = async function(type) {
       const data = docSnap.data();
       const card = document.createElement('div');
       card.style.cssText = 'background:var(--bg-card); padding:16px; border-radius:12px; border:1px solid var(--border);';
+      
+      let detailsHTML = '';
+      if (type === 'deposits') {
+        detailsHTML = `
+          <p class="small muted">Phone: ${data.phoneNumber}</p>
+          <p class="small muted">Deposit Code: <strong>${data.transactionCode || 'N/A'}</strong></p>
+        `;
+      } else {
+        detailsHTML = `
+          <p class="small muted">Payout Phone: ${data.phoneNumber}</p>
+          <p class="small muted">Fee Code (32 KES): <strong style="color:var(--gold);">${data.feeCode || 'N/A'}</strong></p>
+        `;
+      }
+
       card.innerHTML = `
         <h4 style="margin-bottom: 8px; color: ${type === 'deposits' ? 'var(--gold)' : 'var(--green)'};">${type === 'deposits' ? 'Deposit' : 'Withdraw'}: $${data.amount}</h4>
-        <p class="small muted">Phone: ${data.phoneNumber}</p>
-        <p class="small muted">Code: ${data.transactionCode || 'N/A'}</p>
+        ${detailsHTML}
         <div style="display: flex; gap: 8px; margin-top: 12px;">
           <button class="btn-small" style="flex:1; background:var(--green); color:black;" onclick="approveReq('${col}', '${docSnap.id}', '${data.userId}', ${data.amount})">Approve</button>
           <button class="btn-small" style="flex:1; background:var(--danger); color:white;" onclick="rejectReq('${col}', '${docSnap.id}')">Reject</button>
@@ -295,7 +372,9 @@ window.loadAdminData = async function(type) {
       `;
       list.appendChild(card);
     });
-  } catch (error) { list.innerHTML = '<p class="muted text-center" style="color:var(--danger);">Error.</p>'; }
+  } catch (error) { 
+    list.innerHTML = '<p class="muted text-center" style="color:var(--danger);">Error loading data. Check rules.</p>'; 
+  }
 };
 
 window.approveReq = async function(col, id, userId, amount) {
@@ -323,6 +402,9 @@ window.rejectReq = async function(col, id) {
   } catch (error) { showToast("Error", "error"); } 
   finally { showLoading(false); }
 };
+// ==========================================
+// EMPIRE BET - SPORTS & CASINO LOGIC (PART 2)
+// ==========================================
 
 // --- 100 SPORTS MATCHES ---
 const teams = ["Arsenal", "Man City", "Chelsea", "Liverpool", "Real Madrid", "Barcelona", "Bayern", "PSG", "Juventus", "AC Milan", "Inter", "Man United", "Spurs", "Dortmund", "Ajax", "Porto", "Benfica", "Celtic", "Rangers", "Napoli"];
@@ -342,15 +424,23 @@ function generateSports() {
       <div class="match-meta"><span>League</span> <span>Match #${i}</span></div>
       <div class="match-teams"><div class="team">${t1}</div><div class="team">${t2}</div></div>
       <div class="odds-row">
-        <button class="odd-btn" onclick="showToast('Added to Bet Slip', 'success')">1 <span>2.10</span></button>
-        <button class="odd-btn" onclick="showToast('Added to Bet Slip', 'success')">X <span>3.40</span></button>
-        <button class="odd-btn" onclick="showToast('Added to Bet Slip', 'success')">2 <span>2.80</span></button>
+        <button class="odd-btn" onclick="placeBet()">1 <span>2.10</span></button>
+        <button class="odd-btn" onclick="placeBet()">X <span>3.40</span></button>
+        <button class="odd-btn" onclick="placeBet()">2 <span>2.80</span></button>
       </div>
     `;
     matchList.appendChild(card);
   }
 }
 generateSports();
+
+window.placeBet = function() {
+  if (currentBalance < 10) {
+    showToast("Minimum balance to place bets is $10. Please deposit.", "error");
+    return;
+  }
+  showToast('Added to Bet Slip', 'success');
+};
 
 // --- 200 CASINO GAMES ---
 const casinoGrid = document.getElementById('casinoGrid');
@@ -371,8 +461,12 @@ function renderCasino() {
 }
 renderCasino();
 
-// --- CASINO GAME LOGIC ---
 window.launchGame = function(gameName) {
+  if (currentBalance < 10) {
+    showToast("Minimum balance to play Casino is $10. Please deposit.", "error");
+    return; 
+  }
+
   const modal = document.getElementById('gameModal');
   const title = document.getElementById('gameTitle');
   const area = document.getElementById('gameArea');
@@ -566,4 +660,4 @@ function renderPlinko(area) {
       else showToast("Lost", "error");
     }, 1000);
   };
-               }
+      }
