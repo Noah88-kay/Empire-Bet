@@ -22,7 +22,6 @@ let currentBalance = 0.00;
 let currentBonus = 0.00;
 let clickCount = 0;
 let clickTimer = null;
-let tasksCompleted = { 1: false, 2: false, 3: false, 4: false };
 
 const sections = document.querySelectorAll('.section');
 const navItems = document.querySelectorAll('.nav-item');
@@ -131,6 +130,7 @@ registerForm?.addEventListener('submit', async (e) => {
       email: document.getElementById('regEmail').value,
       phone: document.getElementById('regPhone').value,
       status: "active",
+      hasClaimedBonus: false,
       createdAt: serverTimestamp()
     });
     
@@ -182,10 +182,19 @@ async function loadUserData(uid) {
       document.getElementById('accBonus').textContent = `$${currentBonus.toFixed(2)}`;
       document.getElementById('withdrawBal').textContent = fmt;
     }
+    
     const uDoc = await getDoc(doc(db, "users", uid));
     if (uDoc.exists()) {
-      document.getElementById('accName').textContent = uDoc.data().name;
-      document.getElementById('accPhone').textContent = uDoc.data().phone;
+      const userData = uDoc.data();
+      document.getElementById('accName').textContent = userData.name;
+      document.getElementById('accPhone').textContent = userData.phone;
+
+      const claimBtn = document.getElementById('claimBonusBtn');
+      if (userData.hasClaimedBonus) {
+        claimBtn.textContent = "Bonus Already Claimed";
+        claimBtn.disabled = true;
+        claimBtn.style.opacity = "0.5";
+      }
     }
   } catch (err) { console.error("Error loading data:", err); }
 }
@@ -253,7 +262,7 @@ document.getElementById('submitWithdrawBtn')?.addEventListener('click', async (e
   finally { showLoading(false); }
 });
 
-// --- PROMOTIONS (TASKS) ---
+// --- PROMOTIONS ---
 window.completeTask = function(taskNumber) {
   const taskElement = document.getElementById(`task${taskNumber}`);
   
@@ -286,7 +295,6 @@ window.completeTask = function(taskNumber) {
   }
 };
 
-// --- CLAIM $9 FIX ---
 document.getElementById('claimBonusBtn')?.addEventListener('click', async () => {
   if (!currentUser) return;
 
@@ -307,6 +315,10 @@ document.getElementById('claimBonusBtn')?.addEventListener('click', async () => 
       lastUpdated: serverTimestamp() 
     });
 
+    await updateDoc(doc(db, "users", currentUser.uid), { 
+      hasClaimedBonus: true 
+    });
+
     const fmt = `$${currentBalance.toFixed(2)}`;
     document.getElementById('headerBalance').textContent = fmt;
     document.getElementById('accBalance').textContent = fmt;
@@ -314,8 +326,13 @@ document.getElementById('claimBonusBtn')?.addEventListener('click', async () => 
     
     document.getElementById('claimBonusBtn').textContent = "Claimed!";
     document.getElementById('claimBonusBtn').disabled = true;
+    document.getElementById('claimBonusBtn').style.opacity = "0.5";
+    
     showToast("$9.00 Added to your Balance!", "success");
-  } catch (err) { showToast("Failed to claim", "error"); } 
+  } catch (err) { 
+    console.error(err);
+    showToast("Failed to claim", "error"); 
+  } 
   finally { showLoading(false); }
 });
 
@@ -372,33 +389,42 @@ window.loadAdminData = async function(type) {
   }
 };
 
-// --- ADMIN APPROVE FIX ---
 window.approveReq = async function(col, id, userId, amount) {
-  if (!confirm("Approve this request?")) return;
+  if (!confirm("Are you sure you want to approve this?")) return;
   showLoading(true);
   try {
     await updateDoc(doc(db, col, id), { status: "approved" });
     
-    if (col === 'depositRequests') {
-      const wRef = doc(db, "wallets", userId);
-      const wSnap = await getDoc(wRef);
-      if (wSnap.exists()) {
-        const newBal = (wSnap.data().balance || 0) + amount;
+    const wRef = doc(db, "wallets", userId);
+    const wSnap = await getDoc(wRef);
+    
+    if (wSnap.exists()) {
+      let currentBal = wSnap.data().balance || 0;
+      
+      if (col === 'depositRequests') {
+        const newBal = currentBal + amount;
         await updateDoc(wRef, { balance: newBal });
-        
-        if (currentUser && currentUser.uid === userId) {
-          currentBalance = newBal;
-          const fmt = `$${currentBalance.toFixed(2)}`;
-          document.getElementById('headerBalance').textContent = fmt;
-          document.getElementById('accBalance').textContent = fmt;
-          document.getElementById('withdrawBal').textContent = fmt;
-        }
+        if (currentUser && currentUser.uid === userId) currentBalance = newBal;
+      } else if (col === 'withdrawalRequests') {
+        const newBal = currentBal - amount;
+        await updateDoc(wRef, { balance: newBal });
+        if (currentUser && currentUser.uid === userId) currentBalance = newBal;
+      }
+      
+      if (currentUser && currentUser.uid === userId) {
+        const fmt = `$${currentBalance.toFixed(2)}`;
+        document.getElementById('headerBalance').textContent = fmt;
+        document.getElementById('accBalance').textContent = fmt;
+        document.getElementById('withdrawBal').textContent = fmt;
       }
     }
     
-    showToast("Approved!", "success");
+    showToast("Approved successfully!", "success");
     loadAdminData(col === 'depositRequests' ? 'deposits' : 'withdrawals');
-  } catch (error) { showToast("Error", "error"); } 
+  } catch (error) { 
+    console.error(error);
+    showToast("Error approving request", "error"); 
+  } 
   finally { showLoading(false); }
 };
 
@@ -451,21 +477,21 @@ window.placeBet = function() {
   showToast('Added to Bet Slip', 'success');
 };
 
-// --- 200 CASINO GAMES + HORIZONTAL CAROUSEL ---
+// --- CASINO LOGOS & GENERATION ---
 const casinoGrid = document.getElementById('casinoGrid');
 const homeCarousel = document.getElementById('homeCasinoCarousel');
 
 const topGames = [
-  { name: "Aviator", color: "#dc2626" }, 
-  { name: "JetX", color: "#1e3a8a" }, 
-  { name: "Bazooka", color: "#0f172a" }, 
-  { name: "Sweet Bonanza", color: "#db2777" },
-  { name: "Gates of Olympus", color: "#7e22ce" },
-  { name: "Mines", color: "#059669" },
-  { name: "Coin Flip", color: "#d97706" }
+  { name: "Aviator", color: "#dc2626", icon: "✈️" }, 
+  { name: "JetX", color: "#1e3a8a", icon: "🚀" }, 
+  { name: "Bazooka", color: "#eab308", icon: "💥" }, 
+  { name: "Sweet Bonanza", color: "#db2777", icon: "🍬" },
+  { name: "Mines", color: "#059669", icon: "💣" },
+  { name: "Coin Flip", color: "#d97706", icon: "🪙" },
+  { name: "Dice", color: "#4f46e5", icon: "🎲" }
 ];
 
-const gamesList = ["Aviator", "Coin Flip", "Dice", "Mines", "Plinko"];
+const gamesList = ["Aviator", "JetX", "Mines", "Coin Flip", "Dice"];
 for (let i = 6; i <= 200; i++) gamesList.push(`Slot #${i}`);
 const colors = ['bg-purple', 'bg-red', 'bg-blue', 'bg-green', 'bg-gold', 'bg-dark'];
 
@@ -473,29 +499,35 @@ function renderCasino() {
   if (!casinoGrid) return;
   casinoGrid.innerHTML = '';
   
-  // 1. Generate 200 Games for the Casino Tab
   gamesList.forEach((game, i) => {
     const card = document.createElement('div');
     card.className = `casino-card ${colors[i % colors.length]}`;
-    card.innerHTML = `<div class="casino-overlay" style="align-items:center; justify-content:center; text-align:center; height:100%; display:flex;"><span style="font-size:1.2rem; text-transform:uppercase; letter-spacing:1px;">${game}</span></div>`;
+    card.innerHTML = `
+      <div class="casino-overlay" style="align-items:center; justify-content:center; text-align:center; height:100%; display:flex; flex-direction: column;">
+        <span style="font-size:1.5rem; margin-bottom:4px;">🎰</span>
+        <span style="font-size:0.9rem; text-transform:uppercase; letter-spacing:1px; font-style: italic; font-weight: 800; text-shadow: 0 2px 4px #000;">${game}</span>
+      </div>
+    `;
     card.addEventListener('click', () => launchGame(game));
     casinoGrid.appendChild(card);
   });
 
-  // 2. Generate Horizontal Carousel for Home Page
   if (homeCarousel) {
     homeCarousel.innerHTML = '';
     topGames.forEach(game => {
       const box = document.createElement('div');
       box.style.cssText = `
-        min-width: 100px; height: 100px; border-radius: 20px;
+        min-width: 110px; height: 110px; border-radius: 20px;
         background: linear-gradient(135deg, ${game.color}, #000);
-        display: flex; align-items: center; justify-content: center;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
         box-shadow: 0 8px 16px rgba(0,0,0,0.4);
         border: 1px solid rgba(255,255,255,0.1);
         cursor: pointer;
       `;
-      box.innerHTML = `<span style="font-weight: 800; font-size: 1.1rem; font-style: italic; text-transform: uppercase; text-shadow: 0 2px 4px #000;">${game.name}</span>`;
+      box.innerHTML = `
+        <span style="font-size: 2rem; margin-bottom: 8px;">${game.icon}</span>
+        <span style="font-weight: 800; font-size: 0.85rem; font-style: italic; text-transform: uppercase; text-shadow: 0 2px 4px #000; text-align: center; padding: 0 10px; line-height: 1.1;">${game.name}</span>
+      `;
       
       box.addEventListener('click', () => {
         if (currentBalance < 10) {
@@ -524,12 +556,23 @@ window.launchGame = function(gameName) {
   title.textContent = gameName;
   area.innerHTML = '';
 
-  if (gameName === "Aviator") renderAviator(area);
+  if (gameName === "Aviator") renderAviator(area, "Aviator");
+  else if (gameName === "JetX") renderAviator(area, "JetX");
+  else if (gameName === "Mines") renderMines(area);
   else if (gameName === "Coin Flip") renderCoinFlip(area);
   else if (gameName === "Dice") renderDice(area);
-  else if (gameName === "Mines") renderMines(area);
-  else if (gameName === "Plinko") renderPlinko(area);
-  else area.innerHTML = `<p class="muted">This game (${gameName}) is coming soon!</p>`;
+  else {
+    area.innerHTML = `
+      <div style="width: 100%; height: 300px; background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%); border-radius: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1px solid var(--border);">
+        <div style="font-size: 4rem; margin-bottom: 20px; animation: spin 2s linear infinite;">⚙️</div>
+        <h2 style="color: var(--gold); font-size: 1.5rem; margin-bottom: 10px;">${gameName}</h2>
+        <p class="muted" style="margin-bottom: 20px;">Connecting to provider...</p>
+        <div style="width: 80%; height: 6px; background: var(--bg-card); border-radius: 10px; overflow: hidden;">
+          <div style="width: 50%; height: 100%; background: var(--green); border-radius: 10px; animation: load 2s infinite;"></div>
+        </div>
+      </div>
+    `;
+  }
 };
 
 window.closeGame = function() {
@@ -546,102 +589,108 @@ async function gameUpdateBalance(amount) {
   document.getElementById('withdrawBal').textContent = `$${currentBalance.toFixed(2)}`;
 }
 
-// 1. Aviator
-function renderAviator(area) {
+// --- 1. AVIATOR & JETX ---
+function renderAviator(area, gameName) {
+  const isAviator = gameName === "Aviator";
+  const planeEmoji = isAviator ? "✈️" : "🚀";
+  const bgGradient = isAviator ? "radial-gradient(circle, #450a0a 0%, #0b1120 100%)" : "radial-gradient(circle, #1e3a8a 0%, #0b1120 100%)";
+
   area.innerHTML = `
-    <p class="muted mb-16">Bet $1. Cash out before crash!</p>
-    <div id="avMulti" style="font-size:4rem; font-weight:800; color:var(--green); margin-bottom:20px;">1.00x</div>
-    <button class="btn-primary" id="avBtn">Start Flight</button>
+    <div style="width: 100%; height: 250px; background: ${bgGradient}; border-radius: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden; border: 1px solid var(--border); margin-bottom: 20px;">
+      <div id="planeAnim" style="font-size: 4rem; position: absolute; transition: 0.2s; transform: translate(-50%, -50%); bottom: 20px; left: 20px;">${planeEmoji}</div>
+      <h4 style="color: #94a3b8; font-size: 1rem; margin-bottom: 10px; z-index: 2; text-transform: uppercase;">Round Result</h4>
+      <div id="avMulti" style="font-size: 5rem; font-weight: 900; color: var(--green); z-index: 2; letter-spacing: -2px;">1.00x</div>
+    </div>
+    <div style="display: flex; gap: 10px; width: 100%;">
+      <div style="flex: 1; background: var(--bg-card); border-radius: 12px; padding: 15px; display: flex; align-items: center; justify-content: space-between;">
+        <button style="background:transparent; border:none; color:white; font-size:1.5rem;" onclick="document.getElementById('avBet').value = Math.max(1, parseInt(document.getElementById('avBet').value) - 1)">-</button>
+        <input type="number" id="avBet" value="1" min="1" style="width: 50px; text-align: center; background: transparent; border: none; color: white; font-size: 1.2rem; font-weight: bold;" />
+        <button style="background:transparent; border:none; color:white; font-size:1.5rem;" onclick="document.getElementById('avBet').value = parseInt(document.getElementById('avBet').value) + 1">+</button>
+      </div>
+      <button class="btn-primary" id="avBtn" style="flex: 1; border-radius: 12px; padding: 0; font-size: 1.2rem;">BET $1.00</button>
+    </div>
   `;
+
   let multi = 1.00, playing = false;
-  document.getElementById('avBtn').onclick = async () => {
-    const btn = document.getElementById('avBtn'), display = document.getElementById('avMulti');
+  const btn = document.getElementById('avBtn');
+  const display = document.getElementById('avMulti');
+  const plane = document.getElementById('planeAnim');
+  const betInput = document.getElementById('avBet');
+
+  btn.onclick = async () => {
     if (!playing) {
-      if (currentBalance < 1) return showToast("No funds", "error");
-      await gameUpdateBalance(-1);
-      playing = true; multi = 1.00; btn.textContent = "CASH OUT"; display.textContent = "1.00x";
+      const betAmt = Number(betInput.value);
+      if (betAmt < 1 || betAmt > currentBalance) return showToast("Invalid bet amount", "error");
+      
+      await gameUpdateBalance(-betAmt);
+      playing = true; multi = 1.00; 
+      btn.textContent = "CASH OUT"; 
+      btn.style.background = "var(--gold)";
+      btn.style.color = "#000";
+      display.textContent = "1.00x";
       display.style.color = "var(--green)";
+      plane.style.transform = "translate(0, 0)";
+      
+      let progress = 0;
       window.gameInterval = setInterval(() => {
-        if (Math.random() < 0.06) {
-          clearInterval(window.gameInterval); display.textContent = "CRASHED!"; display.style.color = "var(--danger)";
-          btn.textContent = "Start Flight"; playing = false;
-          showToast("Crashed! Lost $1.", "error");
+        if (Math.random() < 0.06 + (multi * 0.01)) {
+          clearInterval(window.gameInterval); 
+          display.textContent = "FLEW AWAY!"; 
+          display.style.color = "var(--danger)";
+          display.style.fontSize = "3rem";
+          btn.textContent = "BET AGAIN"; 
+          btn.style.background = "var(--green)";
+          btn.style.color = "#000";
+          playing = false;
+          showToast(`Flew away at ${multi.toFixed(2)}x!`, "error");
         } else {
-          multi += 0.05; display.textContent = multi.toFixed(2) + "x";
+          multi += 0.05;
+          progress += 1;
+          display.textContent = multi.toFixed(2) + "x";
+          plane.style.bottom = `${Math.min(progress * 2, 80)}%`;
+          plane.style.left = `${Math.min(progress * 2, 80)}%`;
         }
       }, 200);
     } else {
-      clearInterval(window.gameInterval); playing = false;
-      await gameUpdateBalance(multi); showToast(`Won $${multi.toFixed(2)}!`, "success");
-      display.textContent = `Won ${multi.toFixed(2)}x!`; btn.textContent = "Start Flight";
+      clearInterval(window.gameInterval); 
+      playing = false;
+      const betAmt = Number(betInput.value);
+      const payout = multi * betAmt;
+      
+      await gameUpdateBalance(payout); 
+      showToast(`Cashed out $${payout.toFixed(2)}!`, "success");
+      
+      display.textContent = `Won ${multi.toFixed(2)}x!`; 
+      display.style.fontSize = "3rem";
+      btn.textContent = "START FLIGHT"; 
+      btn.style.background = "var(--green)";
+      btn.style.color = "#000";
+      plane.style.bottom = "20px";
+      plane.style.left = "20px";
     }
   };
 }
 
-// 2. Coin Flip
-function renderCoinFlip(area) {
-  area.innerHTML = `
-    <div id="coinAnim" style="font-size:5rem; margin-bottom:20px; transition:0.5s;">🪙</div>
-    <div style="display:flex; gap:10px; width:100%;">
-      <button class="btn-small btn-outline" style="flex:1; padding:15px;" onclick="playCoin('Heads')">Heads</button>
-      <button class="btn-small btn-outline" style="flex:1; padding:15px;" onclick="playCoin('Tails')">Tails</button>
-    </div>
-  `;
-  window.playCoin = async (choice) => {
-    if (currentBalance < 1) return showToast("No funds", "error");
-    const anim = document.getElementById('coinAnim');
-    anim.style.transform = "rotateY(1800deg)";
-    await gameUpdateBalance(-1);
-    setTimeout(async () => {
-      const result = Math.random() < 0.5 ? 'Heads' : 'Tails';
-      anim.textContent = result === 'Heads' ? '👑' : '🦅';
-      if (choice === result) {
-        await gameUpdateBalance(1.95); showToast(`Won! ${result}`, "success");
-      } else {
-        showToast(`Lost! It was ${result}`, "error");
-      }
-      anim.style.transform = "rotateY(0deg)";
-    }, 1000);
-  };
-}
-
-// 3. Dice
-function renderDice(area) {
-  area.innerHTML = `
-    <div id="diceRes" style="font-size:5rem; margin-bottom:20px;">🎲</div>
-    <p class="muted mb-16">Over or under 50?</p>
-    <div style="display:flex; gap:10px; width:100%;">
-      <button class="btn-small btn-outline" style="flex:1; padding:15px;" onclick="rollDice('over')">Over 50</button>
-      <button class="btn-small btn-outline" style="flex:1; padding:15px;" onclick="rollDice('under')">Under 50</button>
-    </div>
-  `;
-  window.rollDice = async (choice) => {
-    if (currentBalance < 1) return showToast("No funds", "error");
-    await gameUpdateBalance(-1);
-    const res = Math.floor(Math.random() * 100) + 1;
-    document.getElementById('diceRes').textContent = res;
-    const win = (choice === 'over' && res > 50) || (choice === 'under' && res < 50);
-    if (win) { await gameUpdateBalance(1.95); showToast(`Won! Rolled ${res}`, "success"); }
-    else { showToast(`Lost! Rolled ${res}`, "error"); }
-  };
-}
-
-// 4. Mines
+// --- 2. MINES ---
 function renderMines(area) {
   let multi = 1.0, step = 0, active = false, mines = [];
   area.innerHTML = `
-    <p class="muted mb-16">Find gems. Avoid mines!</p>
-    <div id="minesMulti" style="font-size:2rem; font-weight:800; color:var(--green); margin-bottom:20px;">1.00x</div>
-    <div id="minesGrid" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; width:100%; max-width:250px; margin-bottom:20px;"></div>
-    <button class="btn-primary" id="minesBtn" onclick="startMines()">Start Game ($1)</button>
+    <p class="muted mb-16">Find the gems. Avoid the 3 mines!</p>
+    <div style="background: var(--bg-card); padding: 16px; border-radius: 12px; width: 100%; margin-bottom: 20px;">
+      <h4 style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 8px;">Current Multiplier</h4>
+      <div id="minesMulti" style="font-size: 2.5rem; font-weight: 800; color: var(--green);">1.00x</div>
+    </div>
+    <div id="minesGrid" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; width:100%; max-width:300px; margin-bottom:20px;"></div>
+    <button class="btn-primary" id="minesBtn" onclick="startMines()" style="width: 100%; max-width: 300px;">Start Game ($1)</button>
   `;
   const grid = document.getElementById('minesGrid');
   for (let i = 0; i < 9; i++) {
     const cell = document.createElement('div');
-    cell.style.cssText = "background:var(--bg-card); height:70px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.5rem; cursor:pointer; border:1px solid var(--border);";
+    cell.style.cssText = "background:var(--bg-card); height:80px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:2rem; cursor:pointer; border:1px solid var(--border); transition: 0.2s;";
     cell.onclick = () => clickMine(i, cell);
     grid.appendChild(cell);
   }
+  
   window.startMines = async () => {
     if (active || currentBalance < 1) return showToast("Cannot start", "error");
     await gameUpdateBalance(-1);
@@ -657,17 +706,18 @@ function renderMines(area) {
     }
     Array.from(grid.children).forEach(c => { c.textContent = ""; c.style.background = "var(--bg-card)"; c.style.cursor = "pointer"; });
   };
+  
   window.clickMine = async (idx, cell) => {
     if (!active || cell.textContent !== "") return;
     if (mines.includes(idx)) {
-      active = false; cell.textContent = "💣"; cell.style.background = "var(--danger)";
-      showToast("Boom! Lost.", "error");
-      document.getElementById('minesBtn').textContent = "Start Game ($1)";
+      active = false; cell.textContent = "💣"; cell.style.background = "rgba(239, 68, 68, 0.2)"; cell.style.borderColor = "var(--danger)";
+      showToast("Boom! You hit a mine.", "error");
+      document.getElementById('minesBtn').textContent = "Play Again";
       document.getElementById('minesBtn').disabled = false;
       document.getElementById('minesBtn').style.opacity = "1";
       mines.forEach(p => { grid.children[p].textContent = "💣"; grid.children[p].style.background = "rgba(239, 68, 68, 0.2)"; });
     } else {
-      cell.textContent = "💎"; cell.style.background = "rgba(0, 230, 118, 0.2)";
+      cell.textContent = "💎"; cell.style.background = "rgba(0, 230, 118, 0.1)"; cell.style.borderColor = "var(--green)";
       step++; multi = 1.0 + (step * 0.5);
       document.getElementById('minesMulti').textContent = `${multi.toFixed(2)}x`;
       document.getElementById('minesBtn').textContent = `Cashout $${multi.toFixed(2)}`;
@@ -676,37 +726,87 @@ function renderMines(area) {
       if (step === 6) cashoutMines();
     }
   };
+  
   const cashoutMines = async () => {
     if (!active || step === 0) return;
     active = false;
     await gameUpdateBalance(multi);
     showToast(`Cashed out $${multi.toFixed(2)}!`, "success");
-    document.getElementById('minesBtn').textContent = "Start Game ($1)";
+    document.getElementById('minesBtn').textContent = "Play Again";
     document.getElementById('minesBtn').disabled = false;
     document.getElementById('minesBtn').style.opacity = "1";
   };
   document.getElementById('minesBtn').onclick = cashoutMines;
 }
 
-// 5. Plinko
-function renderPlinko(area) {
+// --- 3. COIN FLIP ---
+function renderCoinFlip(area) {
   area.innerHTML = `
-    <div id="plinkoRes" style="font-size:5rem; margin-bottom:20px;">🔴</div>
-    <p class="muted mb-16">Drop the ball!</p>
-    <button class="btn-primary" onclick="dropPlinko()" style="width:100%;">Drop Ball ($1)</button>
+    <div style="background: var(--bg-card); padding: 30px; border-radius: 20px; border: 1px solid var(--border); width: 100%; max-width: 300px;">
+      <div id="coinAnim" style="font-size:6rem; margin-bottom:30px; transition: transform 0.6s ease-out;">🪙</div>
+      <p class="muted mb-16">Choose Heads or Tails to win $1.95</p>
+      <div style="display:flex; gap:15px; width:100%;">
+        <button class="btn-small btn-outline" style="flex:1; padding:15px; font-size:1.1rem;" onclick="playCoin('Heads')">Heads</button>
+        <button class="btn-small btn-outline" style="flex:1; padding:15px; font-size:1.1rem;" onclick="playCoin('Tails')">Tails</button>
+      </div>
+    </div>
   `;
-  window.dropPlinko = async () => {
+  window.playCoin = async (choice) => {
+    if (currentBalance < 1) return showToast("No funds", "error");
+    const anim = document.getElementById('coinAnim');
+    anim.style.transform = "rotateY(1800deg)";
+    await gameUpdateBalance(-1);
+    
+    setTimeout(async () => {
+      const result = Math.random() < 0.5 ? 'Heads' : 'Tails';
+      anim.textContent = result === 'Heads' ? '👑' : '🦅';
+      anim.style.transform = "rotateY(0deg)";
+      
+      if (choice === result) {
+        await gameUpdateBalance(1.95); showToast(`Won! It was ${result}`, "success");
+      } else {
+        showToast(`Lost! It was ${result}`, "error");
+      }
+    }, 600);
+  };
+}
+
+// --- 4. DICE ---
+function renderDice(area) {
+  area.innerHTML = `
+    <div style="background: var(--bg-card); padding: 30px; border-radius: 20px; border: 1px solid var(--border); width: 100%; max-width: 300px;">
+      <div id="diceAnim" style="font-size:6rem; margin-bottom:20px;">🎲</div>
+      <div id="diceResult" style="font-size:2rem; font-weight:800; color:var(--gold); margin-bottom:20px;">Roll to win</div>
+      <p class="muted mb-16">Guess if the roll is Over or Under 50.</p>
+      <div style="display:flex; gap:10px; width:100%;">
+        <button class="btn-small btn-outline" style="flex:1; padding:15px;" onclick="rollDice('over')">Over 50</button>
+        <button class="btn-small btn-outline" style="flex:1; padding:15px;" onclick="rollDice('under')">Under 50</button>
+      </div>
+    </div>
+  `;
+  
+  window.rollDice = async (choice) => {
     if (currentBalance < 1) return showToast("No funds", "error");
     await gameUpdateBalance(-1);
-    const display = document.getElementById('plinkoRes');
-    display.textContent = "⬇️";
+    
+    const anim = document.getElementById('diceAnim');
+    anim.style.transform = "rotate(720deg)";
+    
     setTimeout(async () => {
-      const mults = [0, 0.5, 1.5, 3.0, 1.5, 0.5, 0];
-      const res = mults[Math.floor(Math.random() * mults.length)];
-      display.textContent = `${res}x`;
-      display.style.color = res > 1 ? "var(--green)" : "var(--danger)";
-      if (res > 0) { await gameUpdateBalance(res); showToast(`Won $${res.toFixed(2)}!`, "success"); }
-      else showToast("Lost", "error");
-    }, 1000);
+      const res = Math.floor(Math.random() * 100) + 1;
+      document.getElementById('diceResult').textContent = res;
+      document.getElementById('diceResult').style.color = "var(--green)";
+      anim.style.transform = "rotate(0deg)";
+      
+      const win = (choice === 'over' && res > 50) || (choice === 'under' && res < 50);
+      if (win) { 
+        await gameUpdateBalance(1.95); 
+        showToast(`Won! Rolled ${res}`, "success"); 
+      }
+      else { 
+        document.getElementById('diceResult').style.color = "var(--danger)";
+        showToast(`Lost! Rolled ${res}`, "error"); 
+      }
+    }, 600);
   };
-               }
+}
