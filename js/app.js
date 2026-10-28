@@ -189,7 +189,6 @@ async function loadUserData(uid) {
       document.getElementById('accName').textContent = userData.name;
       document.getElementById('accPhone').textContent = userData.phone;
 
-      // THE FIX: Check if they already claimed and lock the UI
       if (userData.hasClaimedBonus) {
         lockPromotionTab();
       }
@@ -197,7 +196,6 @@ async function loadUserData(uid) {
   } catch (err) { console.error("Error loading data:", err); }
 }
 
-// --- LOCK PROMOTION TAB FUNCTION ---
 function lockPromotionTab() {
   const claimBtn = document.getElementById('claimBonusBtn');
   if (claimBtn) {
@@ -326,7 +324,9 @@ window.completeTask = function(taskNumber) {
   }
 };
 
-document.getElementById('claimBonusBtn')?.addEventListener('click', async () => {
+document.getElementById('claimBonusBtn')?.addEventListener('click', async (e) => {
+  e.preventDefault(); // STOPS REFRESH
+  
   if (!currentUser) return;
 
   const country = document.getElementById('task2Select').value;
@@ -338,8 +338,20 @@ document.getElementById('claimBonusBtn')?.addEventListener('click', async () => 
   if (otp !== "4829") return showToast("Incorrect OTP code. Please type 4829.", "error");
 
   try {
-    showLoading(true);
+    // 1. INSTANTLY update the UI
+    const btn = document.getElementById('claimBonusBtn');
+    btn.textContent = "Claiming...";
+    btn.disabled = true; 
+    btn.style.opacity = "0.5";
+    
     currentBalance += 9.00; 
+    const fmt = `$${currentBalance.toFixed(2)}`;
+    document.getElementById('headerBalance').textContent = fmt;
+    document.getElementById('accBalance').textContent = fmt;
+    document.getElementById('withdrawBal').textContent = fmt;
+
+    // 2. Save to Firebase
+    showLoading(true);
     
     await updateDoc(doc(db, "wallets", currentUser.uid), { 
       balance: currentBalance, 
@@ -350,17 +362,22 @@ document.getElementById('claimBonusBtn')?.addEventListener('click', async () => 
       hasClaimedBonus: true 
     });
 
+    // 3. Lock tab
+    showToast("$9.00 Added to your Balance!", "success");
+    lockPromotionTab(); 
+    
+  } catch (err) { 
+    console.error(err);
+    showToast("Failed to claim. Check internet.", "error"); 
+    // Revert UI if failed
+    currentBalance -= 9.00;
     const fmt = `$${currentBalance.toFixed(2)}`;
     document.getElementById('headerBalance').textContent = fmt;
     document.getElementById('accBalance').textContent = fmt;
     document.getElementById('withdrawBal').textContent = fmt;
-    
-    showToast("$9.00 Added to your Balance!", "success");
-    lockPromotionTab(); // Lock it instantly after claiming
-    
-  } catch (err) { 
-    console.error(err);
-    showToast("Failed to claim", "error"); 
+    document.getElementById('claimBonusBtn').textContent = "Claim $9.00 Now";
+    document.getElementById('claimBonusBtn').disabled = false;
+    document.getElementById('claimBonusBtn').style.opacity = "1";
   } 
   finally { showLoading(false); }
 });
@@ -838,4 +855,4 @@ function renderDice(area) {
       }
     }, 600);
   };
-   }
+}
