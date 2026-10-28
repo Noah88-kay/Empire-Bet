@@ -189,14 +189,45 @@ async function loadUserData(uid) {
       document.getElementById('accName').textContent = userData.name;
       document.getElementById('accPhone').textContent = userData.phone;
 
-      const claimBtn = document.getElementById('claimBonusBtn');
+      // THE FIX: Check if they already claimed and lock the UI
       if (userData.hasClaimedBonus) {
-        claimBtn.textContent = "Bonus Already Claimed";
-        claimBtn.disabled = true;
-        claimBtn.style.opacity = "0.5";
+        lockPromotionTab();
       }
     }
   } catch (err) { console.error("Error loading data:", err); }
+}
+
+// --- LOCK PROMOTION TAB FUNCTION ---
+function lockPromotionTab() {
+  const claimBtn = document.getElementById('claimBonusBtn');
+  if (claimBtn) {
+    claimBtn.textContent = "Bonus Already Claimed";
+    claimBtn.disabled = true;
+    claimBtn.style.opacity = "0.5";
+    claimBtn.style.background = "var(--border)";
+    claimBtn.style.color = "var(--text-muted)";
+    claimBtn.style.boxShadow = "none";
+  }
+
+  const task1Btn = document.getElementById('btnTask1');
+  if(task1Btn) task1Btn.disabled = true;
+  
+  const task2Select = document.getElementById('task2Select');
+  if(task2Select) task2Select.disabled = true;
+  
+  const photoInput = document.getElementById('photoInput');
+  if(photoInput) photoInput.disabled = true;
+  
+  const task4Input = document.getElementById('task4Input');
+  if(task4Input) task4Input.disabled = true;
+
+  const promoCard = document.querySelector('.promo-card');
+  if (promoCard && !document.getElementById('lockedMsg')) {
+    const lockMessage = document.createElement('div');
+    lockMessage.id = "lockedMsg";
+    lockMessage.innerHTML = `<p class="text-center gold-text mt-16 font-bold" style="font-size: 0.9rem;">✓ Account Verified. Bonus Claimed.</p>`;
+    promoCard.appendChild(lockMessage);
+  }
 }
 
 // --- DEPOSITS ---
@@ -324,11 +355,9 @@ document.getElementById('claimBonusBtn')?.addEventListener('click', async () => 
     document.getElementById('accBalance').textContent = fmt;
     document.getElementById('withdrawBal').textContent = fmt;
     
-    document.getElementById('claimBonusBtn').textContent = "Claimed!";
-    document.getElementById('claimBonusBtn').disabled = true;
-    document.getElementById('claimBonusBtn').style.opacity = "0.5";
-    
     showToast("$9.00 Added to your Balance!", "success");
+    lockPromotionTab(); // Lock it instantly after claiming
+    
   } catch (err) { 
     console.error(err);
     showToast("Failed to claim", "error"); 
@@ -809,4 +838,4 @@ function renderDice(area) {
       }
     }, 600);
   };
-}
+   }
