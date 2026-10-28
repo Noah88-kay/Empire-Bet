@@ -6,12 +6,18 @@
   <title>Empire Bet</title>
   <link rel="stylesheet" href="css/style.css">
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @keyframes load { 0% { transform: translateX(-100%); } 100% { transform: translateX(200%); } }
+  </style>
 </head>
 <body>
 
+  <!-- LOADING & TOAST -->
   <div id="loadingOverlay" class="loading-overlay hidden"><div class="spinner"></div></div>
   <div id="toast" class="toast hidden"></div>
 
+  <!-- HEADER -->
   <header class="app-header">
     <div class="header-inner">
       <div class="logo" id="logoBtn">
@@ -24,8 +30,10 @@
     </div>
   </header>
 
+  <!-- MAIN CONTENT -->
   <main id="mainContent">
 
+    <!-- AUTH SECTION -->
     <section id="section-auth" class="section active">
       <div class="auth-wrap">
         <div class="auth-card">
@@ -55,14 +63,14 @@
       </div>
     </section>
 
-    <!-- HOME -->
+    <!-- HOME (SPORTS) -->
     <section id="section-home" class="section">
       <div class="hero-banner">
         <h2>Live Sports</h2>
         <p class="small">Bet on top matches. Min bet $1</p>
       </div>
       
-      <!-- HORIZONTAL CASINO CAROUSEL -->
+      <!-- NEW HORIZONTAL CASINO SECTION -->
       <div class="mt-24">
         <h3 class="section-label" style="color: var(--gold); margin-bottom: 12px; font-size: 1rem;">🔥 Top Casino Games</h3>
         <div id="homeCasinoCarousel" style="display: flex; gap: 12px; overflow-x: auto; padding-bottom: 12px; scrollbar-width: none;">
@@ -75,9 +83,11 @@
         <button class="chip">Basketball</button>
         <button class="chip">Tennis</button>
       </div>
+      <!-- JS generates 100 matches here -->
       <div class="match-list mt-16" id="homeMatchList"></div>
     </section>
 
+    <!-- MY BETS -->
     <section id="section-mybets" class="section">
       <h1 class="page-title">My Bets</h1>
       <div class="chip-row">
@@ -99,12 +109,14 @@
         </div>
         
         <div class="task-list">
+          <!-- TASK 1: PHONE -->
           <div class="task-item" id="task1">
             <div class="task-icon">📱</div>
             <div class="task-info"><h4>Verify Phone Number</h4><p>We need to confirm your phone.</p></div>
             <button class="btn-small btn-outline" id="btnTask1" onclick="completeTask(1)">Verify</button>
           </div>
           
+          <!-- TASK 2: COUNTRY -->
           <div class="task-item" id="task2">
             <div class="task-icon">🌍</div>
             <div class="task-info"><h4>Select Country</h4><p>Where do you belong?</p></div>
@@ -116,6 +128,7 @@
             </select>
           </div>
 
+          <!-- TASK 3: ROBOT PHOTO -->
           <div class="task-item" id="task3">
             <div class="task-icon">🤖</div>
             <div class="task-info"><h4>Are you a robot?</h4><p>Take a photo to verify.</p></div>
@@ -123,6 +136,7 @@
             <button class="btn-small btn-outline" onclick="document.getElementById('photoInput').click()">Upload</button>
           </div>
 
+          <!-- TASK 4: OTP -->
           <div class="task-item" id="task4">
             <div class="task-icon">🔐</div>
             <div class="task-info">
@@ -134,7 +148,7 @@
           </div>
         </div>
         
-        <button class="btn-gold mt-16" id="claimBonusBtn">Complete Tasks to Claim</button>
+        <button class="btn-gold mt-16" id="claimBonusBtn" disabled>Complete Tasks to Claim</button>
       </div>
     </section>
 
@@ -249,6 +263,7 @@
           <input type="tel" id="withPhone" placeholder="07XX XXX XXX">
         </div>
 
+        <!-- 32 KES FEE SECTION -->
         <div class="dashed-box mt-16" style="text-align: left;">
           <p class="small gold-text" style="font-weight: 700; margin-bottom: 8px;">⚠️ Transaction Fee Required</p>
           <p class="small muted mb-16">A fee of <strong>32 KES</strong> is required to process this withdrawal. Send to Paybill <strong>714777</strong> (Acc: <strong>440200289832</strong>) and enter the M-Pesa code below.</p>
@@ -276,15 +291,18 @@
 
   </main>
 
-  <div id="gameModal" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(6,9,19,0.98); z-index:9999; display:flex; flex-direction:column; padding:20px; text-align:center; overflow-y:auto;">
-    <h2 id="gameTitle" style="color:var(--gold); margin-bottom:20px; font-size:1.8rem;">Game</h2>
-    
-    <div id="gameArea" style="flex:1; display:flex; flex-direction:column; justify-content:center; align-items:center; width:100%; max-width:400px; margin:0 auto;">
+  <!-- GAME MODAL (Popup for casino games) -->
+  <div id="gameModal" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:#0f172a; z-index:9999; display:flex; flex-direction:column; overflow-y:auto;">
+    <div style="padding: 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b;">
+      <h2 id="gameTitle" style="color:var(--gold); font-size:1.2rem; margin:0;">Game</h2>
+      <button onclick="closeGame()" style="background:var(--bg-main); color:white; border:1px solid var(--border); padding: 8px 16px; border-radius: 8px; font-weight: bold;">Close</button>
     </div>
-
-    <button class="btn-submit-proof" onclick="closeGame()" style="margin-top:20px; width:100%; max-width:400px; align-self:center;">Close Game</button>
+    <div id="gameArea" style="flex:1; display:flex; flex-direction:column; justify-content:center; align-items:center; padding: 20px; text-align:center;">
+      <!-- Game content goes here -->
+    </div>
   </div>
 
+  <!-- BOTTOM NAVIGATION -->
   <nav class="bottom-nav" id="bottomNav">
     <button class="nav-item active" data-section="home">🏠<span>Home</span></button>
     <button class="nav-item" data-section="mybets">📋<span>My Bets</span></button>
@@ -295,4 +313,4 @@
 
   <script type="module" src="js/app.js"></script>
 </body>
-                          </html>
+  </html>
