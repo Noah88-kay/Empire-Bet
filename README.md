@@ -29,13 +29,12 @@ In dev, SMS codes are printed in the API terminal and M-Pesa runs in `mock` mode
 `render.yaml` is a Render Blueprint: one Node web service (the API, which also serves the built React site, so both share one URL) and a PostgreSQL database.
 
 1. Render dashboard → **New → Blueprint** → select this repository (branch `main`).
-2. Fill the values marked `sync: false`: `WEB_ORIGIN` and `MPESA_CALLBACK_BASE_URL` (your Render URL, e.g. `https://empire-bet.onrender.com`) and the Daraja credentials. JWT and callback secrets are generated for you.
-3. After the first deploy, open the service **Shell** and create the first back-office account:
-   ```bash
-   ADMIN_PHONE=07XXXXXXXX ADMIN_NAME="Ops Lead" ADMIN_PASSWORD='a-long-password' npm run create-admin -w @empire/api
-   ```
+2. Fill the values marked `sync: false`: `WEB_ORIGIN` and `MPESA_CALLBACK_BASE_URL` (your Render URL, e.g. `https://empire-bet.onrender.com`), `ADMIN_PHONE` / `ADMIN_NAME` / `ADMIN_PASSWORD` (12+ characters) for the first back-office login, and the Daraja credentials (can stay empty for a demo). JWT and callback secrets are generated for you.
+3. When the deploy is live, log in with the admin phone and password, then delete `ADMIN_PASSWORD` in the service's Environment tab. (On a paid plan you can instead use `npm run create-admin -w @empire/api` in the Shell.)
 
-The build switches the Prisma provider from SQLite to PostgreSQL and runs `prisma db push`. Move to `prisma migrate` once the schema settles. Use a paid instance: free ones sleep when idle, which pauses the live feed and breaks M-Pesa callbacks.
+`render.yaml` uses Render's **free** plans. Free web services sleep after 15 minutes without visits (the next visit takes about a minute to wake, and the live feed pauses while asleep; it catches up on wake). Free Postgres expires 30 days after creation. Switch to `plan: starter` and `plan: basic-256mb` for an always-on site that keeps its data.
+
+The build switches the Prisma provider from SQLite to PostgreSQL and runs `prisma db push`. Move to `prisma migrate` once the schema settles.
 
 ## How money works
 

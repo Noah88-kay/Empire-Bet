@@ -4,9 +4,9 @@ services:
   - type: web
     name: empire-bet
     runtime: node
-    # Paid plan recommended: free instances sleep after 15 min idle, which pauses the live
-    # sports feed and makes M-Pesa callbacks fail until the next request wakes it.
-    plan: starter
+    # Free plan: sleeps after 15 min without visits (first visit then takes ~1 min to wake),
+    # which also pauses the live sports feed until it wakes. Use "starter" for always-on.
+    plan: free
     region: frankfurt
     branch: main
     # Dev uses SQLite; production switches the same schema to PostgreSQL before install,
@@ -60,10 +60,19 @@ services:
         sync: false # same as WEB_ORIGIN
       - key: FEED_MODE
         value: espn
+      # First back-office login, created on startup if it doesn't exist (free plan has no Shell).
+      # Delete ADMIN_PASSWORD after your first login.
+      - key: ADMIN_PHONE
+        sync: false
+      - key: ADMIN_NAME
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
 
 databases:
   - name: empire-bet-db
-    plan: basic-256mb
+    # Free Postgres: 1 GB, expires 30 days after creation unless upgraded. Use "basic-256mb" to keep data.
+    plan: free
     region: frankfurt
     databaseName: empirebet
     user: empirebet

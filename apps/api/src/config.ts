@@ -25,7 +25,12 @@ const envSchema = z.object({
   FEED_LEAGUES: z.string().default('eng.1,esp.1,ita.1,ger.1,fra.1,uefa.champions,uefa.europa,ken.1'),
   FEED_DAYS_AHEAD: z.coerce.number().int().min(0).max(14).default(7),
   FEED_LIVE_INTERVAL_S: z.coerce.number().int().min(15).default(30),
-  FEED_FULL_INTERVAL_S: z.coerce.number().int().min(60).default(600)
+  FEED_FULL_INTERVAL_S: z.coerce.number().int().min(60).default(600),
+  // Optional: creates the first back-office account on startup if it doesn't exist yet
+  // (for hosts without shell access, e.g. Render's free plan). Remove after the first login.
+  ADMIN_PHONE: z.string().optional(),
+  ADMIN_NAME: z.string().optional(),
+  ADMIN_PASSWORD: z.string().optional()
 });
 
 const parsed = envSchema.safeParse(process.env);
