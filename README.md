@@ -24,6 +24,19 @@ npm run dev                              # API on :4000, web on :5173
 Demo logins (local seed only, see `apps/api/prisma/seed.ts`) are a player and an admin account.
 In dev, SMS codes are printed in the API terminal and M-Pesa runs in `mock` mode: deposits and withdrawals confirm themselves after ~3 seconds.
 
+## Deploy on Render
+
+`render.yaml` is a Render Blueprint: one Node web service (the API, which also serves the built React site, so both share one URL) and a PostgreSQL database.
+
+1. Render dashboard → **New → Blueprint** → select this repository (branch `main`).
+2. Fill the values marked `sync: false`: `WEB_ORIGIN` and `MPESA_CALLBACK_BASE_URL` (your Render URL, e.g. `https://empire-bet.onrender.com`) and the Daraja credentials. JWT and callback secrets are generated for you.
+3. After the first deploy, open the service **Shell** and create the first back-office account:
+   ```bash
+   ADMIN_PHONE=07XXXXXXXX ADMIN_NAME="Ops Lead" ADMIN_PASSWORD='a-long-password' npm run create-admin -w @empire/api
+   ```
+
+The build switches the Prisma provider from SQLite to PostgreSQL and runs `prisma db push`. Move to `prisma migrate` once the schema settles. Use a paid instance: free ones sleep when idle, which pauses the live feed and breaks M-Pesa callbacks.
+
 ## How money works
 
 - All amounts are integer cents. No floats touch balances.
@@ -60,7 +73,6 @@ In dev, SMS codes are printed in the API terminal and M-Pesa runs in `mock` mode
 ## Before going live
 
 - [ ] BCLB licence; fill in every `[PLACEHOLDER]` in the UI (licence no., support contact, helpline).
-- [ ] Switch `prisma/schema.prisma` provider to `postgresql`, set `DATABASE_URL`, run migrations (`prisma migrate`).
 - [ ] Real Daraja credentials, `MPESA_MODE=production`, a public HTTPS `MPESA_CALLBACK_BASE_URL`; restrict callbacks to Safaricom IPs at the proxy.
 - [ ] Real SMS gateway in `apps/api/src/integrations/sms.ts`.
 - [ ] Licensed odds and results feed replacing the ESPN development feed (and a source for the Kenyan Premier League).

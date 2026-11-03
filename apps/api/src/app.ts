@@ -1,4 +1,7 @@
 import express from 'express';
+import path from 'node:path';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
@@ -35,6 +38,17 @@ export function createApp() {
   app.use('/api/admin', adminRouter);
 
   app.use('/api', (_req, _res, next) => next(notFound()));
+
+  // In production the API also serves the built React app, so site and API share one origin
+  // (session cookies just work, no CORS or proxy needed).
+  const webDist = fileURLToPath(new URL('../../web/dist', import.meta.url));
+  if (config.NODE_ENV === 'production' && existsSync(webDist)) {
+    // Hashed build files never change; everything else (index.html, favicon) revalidates hourly.
+    app.use('/assets', express.static(path.join(webDist, 'assets'), { immutable: true, maxAge: '1y' }));
+    app.use(express.static(webDist, { index: false, maxAge: '1h' }));
+    app.get('*', (_req, res) => res.sendFile(path.join(webDist, 'index.html')));
+  }
+
   app.use(errorHandler);
   return app;
 }

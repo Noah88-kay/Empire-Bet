@@ -1,0 +1,69 @@
+# Render Blueprint: one Node web service (API + built React site on the same origin) and a Postgres database.
+# Deploy: Render dashboard → New → Blueprint → pick this repo. Fill the "sync: false" values when prompted.
+services:
+  - type: web
+    name: empire-bet
+    runtime: node
+    # Paid plan recommended: free instances sleep after 15 min idle, which pauses the live
+    # sports feed and makes M-Pesa callbacks fail until the next request wakes it.
+    plan: starter
+    region: frankfurt
+    branch: main
+    # Dev uses SQLite; production switches the same schema to PostgreSQL before install,
+    # so the generated Prisma client targets Postgres.
+    buildCommand: >-
+      sed -i 's/provider = "sqlite"/provider = "postgresql"/' apps/api/prisma/schema.prisma &&
+      npm ci --include=dev &&
+      npm run build -w @empire/web &&
+      npx prisma db push --schema apps/api/prisma/schema.prisma --skip-generate
+    startCommand: npm run start -w @empire/api
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: empire-bet-db
+          property: connectionString
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: MPESA_CALLBACK_SECRET
+        generateValue: true
+      - key: WEB_ORIGIN
+        sync: false # e.g. https://empire-bet.onrender.com or your custom domain
+      - key: AUTO_APPROVE_WITHDRAWAL_KES
+        value: "20000"
+      - key: WINNINGS_TAX_RATE
+        value: "0"
+      # M-Pesa: "sandbox" until Safaricom approves your go-live; then "production".
+      - key: MPESA_MODE
+        value: sandbox
+      - key: MPESA_CONSUMER_KEY
+        sync: false
+      - key: MPESA_CONSUMER_SECRET
+        sync: false
+      - key: MPESA_SHORTCODE
+        sync: false
+      - key: MPESA_PASSKEY
+        sync: false
+      - key: MPESA_B2C_SHORTCODE
+        sync: false
+      - key: MPESA_B2C_INITIATOR
+        sync: false
+      - key: MPESA_B2C_SECURITY_CREDENTIAL
+        sync: false
+      - key: MPESA_CALLBACK_BASE_URL
+        sync: false # same as WEB_ORIGIN
+      - key: FEED_MODE
+        value: espn
+
+databases:
+  - name: empire-bet-db
+    plan: basic-256mb
+    region: frankfurt
+    databaseName: empirebet
+    user: empirebet
