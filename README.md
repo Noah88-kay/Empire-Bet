@@ -29,12 +29,21 @@ In dev, SMS codes are printed in the API terminal and M-Pesa runs in `mock` mode
 `render.yaml` is a Render Blueprint: one Node web service (the API, which also serves the built React site, so both share one URL) and a PostgreSQL database.
 
 1. Render dashboard → **New → Blueprint** → select this repository (branch `main`).
-2. Fill the values marked `sync: false`: `WEB_ORIGIN` and `MPESA_CALLBACK_BASE_URL` (your Render URL, e.g. `https://empire-bet.onrender.com`), `ADMIN_PHONE` / `ADMIN_NAME` / `ADMIN_PASSWORD` (12+ characters) for the first back-office login, and the Daraja credentials (can stay empty for a demo). JWT and callback secrets are generated for you.
+2. Fill the values marked `sync: false`: `WEB_ORIGIN` and `MPESA_CALLBACK_BASE_URL` (your Render URL, e.g. `https://empire-bet.onrender.com`), `ADMIN_PHONE` / `ADMIN_NAME` / `ADMIN_PASSWORD` (8+ characters) for the first back-office login, and the Daraja credentials (can stay empty for a demo). JWT and callback secrets are generated for you.
 3. When the deploy is live, log in with the admin phone and password, then delete `ADMIN_PASSWORD` in the service's Environment tab. (On a paid plan you can instead use `npm run create-admin -w @empire/api` in the Shell.)
 
 `render.yaml` uses Render's **free** plans. Free web services sleep after 15 minutes without visits (the next visit takes about a minute to wake, and the live feed pauses while asleep; it catches up on wake). Free Postgres expires 30 days after creation. Switch to `plan: starter` and `plan: basic-256mb` for an always-on site that keeps its data.
 
 The build switches the Prisma provider from SQLite to PostgreSQL and runs `prisma db push`. Move to `prisma migrate` once the schema settles.
+
+## Authentication (JWT)
+
+- **Access token:** 15 minutes, HS256, carries user id and role. Send it as `Authorization: Bearer <token>`; the web app on the same origin also gets it as an httpOnly cookie.
+- **Refresh token:** 7 days. `POST /api/auth/refresh` with `{ "refreshToken": "..." }` (or the cookie) returns a new pair. Every refresh rotates the token; reusing an old one ends that whole login session (stolen-token detection) without affecting other devices.
+- `POST /api/auth/logout` revokes the current refresh token; `POST /api/auth/logout-all` revokes every session for the user.
+- Login, register and refresh all return `{ user, accessToken, refreshToken, tokenType, expiresIn }`, so mobile apps or a separately hosted front end can use the API (set `VITE_API_URL` for the latter).
+- **Phone codes:** SMS verification is only required when a real SMS provider is configured (`SMS_MODE=africastalking` + `AT_USERNAME` + `AT_API_KEY`). Without one, new accounts are usable straight after sign-up.
+- **First admin:** `ADMIN_PHONE` / `ADMIN_NAME` / `ADMIN_PASSWORD` (8+ characters) are applied on every start: the account is created, or promoted to admin and given that password if the phone already exists.
 
 ## How money works
 
@@ -73,7 +82,7 @@ The build switches the Prisma provider from SQLite to PostgreSQL and runs `prism
 
 - [ ] BCLB licence; fill in every `[PLACEHOLDER]` in the UI (licence no., support contact, helpline).
 - [ ] Real Daraja credentials, `MPESA_MODE=production`, a public HTTPS `MPESA_CALLBACK_BASE_URL`; restrict callbacks to Safaricom IPs at the proxy.
-- [ ] Real SMS gateway in `apps/api/src/integrations/sms.ts`.
+- [ ] Africa's Talking account for SMS codes (`SMS_MODE=africastalking`, `AT_USERNAME`, `AT_API_KEY`) so phone numbers are verified again.
 - [ ] Licensed odds and results feed replacing the ESPN development feed (and a source for the Kenyan Premier League).
 - [ ] ID verification provider for KYC; confirm current tax rules and set `WINNINGS_TAX_RATE`.
 - [ ] Not yet built: in-play betting, live push updates (Socket.IO; the UI polls every 15–20 s), cash-out, more markets than 1X2, Crash/Mines/Plinko, slot aggregator, wider test coverage.

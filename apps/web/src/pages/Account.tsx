@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatKes, toCents } from '@empire/shared';
-import { api, type User } from '../lib/api';
+import { api, logout as apiLogout, type User } from '../lib/api';
 import { useMe } from '../lib/hooks';
 import { useToast } from '../state/toast';
 import { IconShield } from '../components/Icons';
@@ -40,7 +40,7 @@ export function Account() {
   }
 
   async function logout() {
-    await api('/auth/logout', { body: {} });
+    await apiLogout();
     qc.clear();
     qc.setQueryData(['me'], null);
     nav('/');

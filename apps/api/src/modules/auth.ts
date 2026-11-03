@@ -1,18 +1,25 @@
-import { Router } from 'express';
+import { Router, type Request } from 'express';
 import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
 import rateLimit from 'express-rate-limit';
 import { loginSchema, registerSchema, verifyPhoneSchema, maskPhone } from '@empire/shared';
+import { smsEnabled } from '../config.js';
 import { prisma } from '../db.js';
 import { badRequest, conflict, parse, route, unauthorized } from '../lib/http.js';
-import { clearSession, issueSession, refreshSession, requireUser } from '../lib/auth.js';
+import { clearSession, issueSession, refreshSession, requireUser, revokeAllSessions, revokeSession } from '../lib/auth.js';
 import { sendSms } from '../integrations/sms.js';
 import { audit } from '../lib/audit.js';
 
 export const authRouter = Router();
 
-const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 30, standardHeaders: true, legacyHeaders: false });
-const otpLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 5, standardHeaders: true, legacyHeaders: false });
+// Behind Render/Cloudflare several visitors can share req.ip; prefer the real client IP header.
+const clientKey = (req: Request) => {
+  const h = req.headers['true-client-ip'] ?? req.headers['cf-connecting-ip'];
+  return (Array.isArray(h) ? h[0] : h) || req.ip || 'unknown';
+};
+const limitOpts = { windowMs: 15 * 60 * 1000, standardHeaders: true, legacyHeaders: false, keyGenerator: clientKey } as const;
+const authLimiter = rateLimit({ ...limitOpts, limit: 30, message: { error: { code: 'rate_limited', message: 'Too many attempts. Wait a few minutes and try again.' } } });
+const otpLimiter = rateLimit({ ...limitOpts, limit: 5, message: { error: { code: 'rate_limited', message: 'Too many code requests. Wait a few minutes and try again.' } } });
 
 const OTP_TTL_MS = 10 * 60 * 1000;
 const OTP_MAX_ATTEMPTS = 5;
@@ -73,13 +80,22 @@ authRouter.post(
         passwordHash: await bcrypt.hash(input.password, 12),
         dateOfBirth: dob,
         nationalId: input.nationalId,
+        // Without a real SMS provider no code can reach the phone, so don't block sign-up on one.
+        phoneVerified: !smsEnabled,
         wallet: { create: {} }
       }
     });
-    await sendOtp(user.id, user.phone);
+    if (smsEnabled) {
+      try {
+        await sendOtp(user.id, user.phone);
+      } catch (err) {
+        // The account exists either way; the player can tap "Send a new code".
+        console.error('[sms]', (err as Error).message);
+      }
+    }
     await audit({ id: user.id, name: user.name }, 'user.registered', user.id);
-    issueSession(res, user);
-    res.status(201).json({ user: publicUser(user) });
+    const tokens = await issueSession(req, res, user);
+    res.status(201).json({ user: publicUser(user), ...tokens });
   })
 );
 
@@ -93,22 +109,36 @@ authRouter.post(
     const ok = await bcrypt.compare(input.password, user?.passwordHash ?? '$2a$12$invalidinvalidinvalidinvalidinvalidinvalidinvalidinv');
     if (!user || !ok) throw unauthorized('Wrong phone number or password');
     if (user.status !== 'active') throw unauthorized('This account is suspended. Contact support.');
-    issueSession(res, user);
-    res.json({ user: publicUser(user) });
+    const fresh = !user.phoneVerified && !smsEnabled ? await prisma.user.update({ where: { id: user.id }, data: { phoneVerified: true } }) : user;
+    const tokens = await issueSession(req, res, fresh);
+    res.json({ user: publicUser(fresh), ...tokens });
   })
 );
 
+/** Body `{ refreshToken }` (API clients) or the eb_refresh cookie (web). Returns a rotated pair. */
 authRouter.post(
   '/refresh',
+  authLimiter,
   route(async (req, res) => {
-    const user = await refreshSession(req, res);
-    res.json({ user: publicUser(user) });
+    const { user, tokens } = await refreshSession(req, res);
+    res.json({ user: publicUser(user), ...tokens });
   })
 );
 
 authRouter.post(
   '/logout',
   route(async (req, res) => {
+    await revokeSession(req, res);
+    res.json({ ok: true });
+  })
+);
+
+authRouter.post(
+  '/logout-all',
+  requireUser,
+  route(async (req, res) => {
+    await revokeAllSessions(req.user!.id);
+    await prisma.user.update({ where: { id: req.user!.id }, data: { tokenVersion: { increment: 1 } } });
     clearSession(res);
     res.json({ ok: true });
   })
@@ -118,8 +148,10 @@ authRouter.get(
   '/me',
   requireUser,
   route(async (req, res) => {
-    const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
+    let user = await prisma.user.findUnique({ where: { id: req.user!.id } });
     if (!user) throw unauthorized();
+    // Accounts created while SMS codes were required but undeliverable get unstuck here.
+    if (!user.phoneVerified && !smsEnabled) user = await prisma.user.update({ where: { id: user.id }, data: { phoneVerified: true } });
     res.json({ user: publicUser(user) });
   })
 );
@@ -155,7 +187,16 @@ authRouter.post(
   route(async (req, res) => {
     const user = await prisma.user.findUniqueOrThrow({ where: { id: req.user!.id } });
     if (user.phoneVerified) throw badRequest('already_verified', 'Phone already verified');
-    await sendOtp(user.id, user.phone);
+    if (!smsEnabled) {
+      const verified = await prisma.user.update({ where: { id: user.id }, data: { phoneVerified: true } });
+      return res.json({ ok: true, user: publicUser(verified) });
+    }
+    try {
+      await sendOtp(user.id, user.phone);
+    } catch (err) {
+      console.error('[sms]', (err as Error).message);
+      throw badRequest('sms_failed', 'We could not send the SMS right now. Try again in a minute.');
+    }
     res.json({ ok: true });
   })
 );

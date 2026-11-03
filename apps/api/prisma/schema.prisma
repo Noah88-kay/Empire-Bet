@@ -28,12 +28,30 @@ model User {
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
 
-  wallet     Wallet?
-  otps       OtpCode[]
+  wallet        Wallet?
+  refreshTokens RefreshToken[]
+  otps          OtpCode[]
   payments   Payment[]
   bets       Bet[]
   gameRounds GameRound[]
   seedPair   SeedPair?
+}
+
+/// One row per issued refresh JWT (id = its jti). Rotated on every refresh; reuse of a
+/// rotated token revokes the whole session family (stolen-token detection).
+model RefreshToken {
+  id         String    @id
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  familyId   String
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  replacedBy String?
+  userAgent  String?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@index([familyId])
 }
 
 model OtpCode {

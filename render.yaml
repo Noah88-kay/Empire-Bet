@@ -60,8 +60,16 @@ services:
         sync: false # same as WEB_ORIGIN
       - key: FEED_MODE
         value: espn
-      # First back-office login, created on startup if it doesn't exist (free plan has no Shell).
-      # Delete ADMIN_PASSWORD after your first login.
+      # SMS codes for phone verification. Leave SMS_MODE=console until you have an Africa's Talking
+      # account; sign-up then works without a code.
+      - key: SMS_MODE
+        value: console
+      - key: AT_USERNAME
+        sync: false
+      - key: AT_API_KEY
+        sync: false
+      # First back-office login (8+ char password). Applied on every start: created, or promoted
+      # and given this password if the phone already exists. Delete ADMIN_PASSWORD after logging in.
       - key: ADMIN_PHONE
         sync: false
       - key: ADMIN_NAME

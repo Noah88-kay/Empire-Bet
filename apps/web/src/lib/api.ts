@@ -4,25 +4,78 @@ export class ApiError extends Error {
   }
 }
 
+// Same origin by default (API serves the site). Set VITE_API_URL when the API lives elsewhere.
+const API_BASE = `${(import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')}/api`;
+
+// ---- JWT token store ----
+// Access token lives in memory only; the refresh token is kept so a reload stays signed in.
+// (The server also sets httpOnly cookies, which cover same-origin use on their own.)
+const REFRESH_KEY = 'eb_rt';
+let accessToken: string | null = null;
+
+export interface TokenResponse { accessToken?: string; refreshToken?: string }
+
+export function saveTokens(t: TokenResponse) {
+  if (t.accessToken) accessToken = t.accessToken;
+  try {
+    if (t.refreshToken) localStorage.setItem(REFRESH_KEY, t.refreshToken);
+  } catch {
+    /* storage blocked: cookies still work */
+  }
+}
+
+export function clearTokens() {
+  accessToken = null;
+  try {
+    localStorage.removeItem(REFRESH_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+function storedRefresh(): string | null {
+  try {
+    return localStorage.getItem(REFRESH_KEY);
+  } catch {
+    return null;
+  }
+}
+
 let refreshing: Promise<boolean> | null = null;
 
+/** Rotates the refresh token once, even if many requests hit 401 at the same time. */
 async function tryRefresh(): Promise<boolean> {
-  refreshing ??= fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' })
-    .then((r) => r.ok)
-    .catch(() => false)
-    .finally(() => setTimeout(() => (refreshing = null), 0));
+  refreshing ??= (async () => {
+    const rt = storedRefresh();
+    const res = await fetch(`${API_BASE}/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(rt ? { refreshToken: rt } : {})
+    }).catch(() => null);
+    if (!res?.ok) {
+      clearTokens();
+      return false;
+    }
+    saveTokens(await res.json());
+    return true;
+  })().finally(() => setTimeout(() => (refreshing = null), 0));
   return refreshing;
 }
 
-/** JSON fetch against the API. On 401 it refreshes the session once and retries. */
+/** JSON fetch against the API with the JWT attached. On 401 it refreshes once and retries. */
 export async function api<T>(path: string, init: { method?: string; body?: unknown } = {}, retry = true): Promise<T> {
-  const res = await fetch(`/api${path}`, {
+  const headers: Record<string, string> = {};
+  if (init.body !== undefined) headers['Content-Type'] = 'application/json';
+  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+  const res = await fetch(`${API_BASE}${path}`, {
     method: init.method ?? (init.body !== undefined ? 'POST' : 'GET'),
     credentials: 'include',
-    headers: init.body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
+    headers,
     body: init.body !== undefined ? JSON.stringify(init.body) : undefined
   });
-  if (res.status === 401 && retry && !path.startsWith('/auth/')) {
+  const isAuthCall = /^\/auth\/(login|register|refresh|logout)/.test(path);
+  if (res.status === 401 && retry && !isAuthCall) {
     if (await tryRefresh()) return api<T>(path, init, false);
   }
   const data = await res.json().catch(() => ({}));
@@ -30,7 +83,15 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
     const e = data?.error ?? {};
     throw new ApiError(res.status, e.code ?? 'error', e.message ?? 'Something went wrong', e.details);
   }
+  if (data && typeof data === 'object' && 'accessToken' in data) saveTokens(data as TokenResponse);
   return data as T;
+}
+
+/** Revokes this device's refresh token on the server and forgets the tokens locally. */
+export async function logout() {
+  const rt = storedRefresh();
+  await api('/auth/logout', { body: rt ? { refreshToken: rt } : {} }).catch(() => undefined);
+  clearTokens();
 }
 
 // ---- Response types ----

@@ -19,7 +19,12 @@ const envSchema = z.object({
   MPESA_B2C_SECURITY_CREDENTIAL: z.string().optional(),
   MPESA_CALLBACK_BASE_URL: z.string().optional(),
   MPESA_CALLBACK_SECRET: z.string().min(8),
-  SMS_MODE: z.enum(['console']).default('console'),
+  // console = codes only printed in the server log; africastalking = real SMS.
+  // Phone verification by SMS code is only required when a real provider is configured.
+  SMS_MODE: z.enum(['console', 'africastalking']).default('console'),
+  AT_USERNAME: z.string().optional(), // "sandbox" for Africa's Talking test accounts
+  AT_API_KEY: z.string().optional(),
+  AT_SENDER_ID: z.string().optional(), // approved alphanumeric sender ID, optional
   // Live fixtures/scores/odds. "off" leaves events to manual entry in the back office.
   FEED_MODE: z.enum(['espn', 'off']).default('espn'),
   FEED_LEAGUES: z.string().default('eng.1,esp.1,ita.1,ger.1,fra.1,uefa.champions,uefa.europa,ken.1'),
@@ -40,6 +45,9 @@ if (!parsed.success) {
 }
 
 export const config = parsed.data;
+
+/** True only when SMS codes can actually reach a phone. */
+export const smsEnabled = config.SMS_MODE === 'africastalking' && !!config.AT_USERNAME && !!config.AT_API_KEY;
 
 if (config.NODE_ENV === 'production') {
   const weak = ['change-me-access', 'change-me-refresh', 'change-me-callback'];

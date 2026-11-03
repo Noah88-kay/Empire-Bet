@@ -126,7 +126,8 @@ export function Register() {
   async function resend() {
     setError(null);
     try {
-      await api('/auth/resend-otp', { body: {} });
+      const r = await api<{ ok: true; user?: User }>('/auth/resend-otp', { body: {} });
+      if (r.user) return qc.setQueryData(['me'], r.user); // server verified the phone directly (no SMS provider)
       setResent(true);
     } catch (err) {
       setError((err as Error).message);
