@@ -44,6 +44,7 @@ async function main() {
     prisma.otpCode.deleteMany(),
     prisma.wallet.deleteMany(),
     prisma.auditLog.deleteMany(),
+    prisma.feedState.deleteMany(),
     prisma.user.deleteMany()
   ]);
 
@@ -78,6 +79,11 @@ async function main() {
     }
   });
 
+  // With the live feed on (default), real fixtures arrive from the sync job within seconds of API start.
+  if (process.env.FEED_MODE !== 'off') {
+    console.log('Seeded 2 users. Fixtures come from the live feed.');
+    return;
+  }
   for (const [league, home, away, inHours, odds, extra] of fixtures) {
     await prisma.event.create({
       data: {

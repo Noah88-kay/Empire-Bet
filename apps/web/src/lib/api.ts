@@ -52,14 +52,20 @@ export interface EventDto {
   id: string;
   sport: string;
   league: string;
+  leagueCode: string | null;
   home: string;
   away: string;
   startsAt: string;
-  status: 'scheduled' | 'live';
+  status: 'scheduled' | 'live' | 'finished' | 'cancelled';
   minute: number | null;
+  clock: string | null;
   homeScore: number | null;
   awayScore: number | null;
   featured: boolean;
+  source: string;
+  oddsSource: string | null;
+  oddsUpdatedAt: string | null;
+  syncedAt: string | null;
   market?: { id: string; status: string; selections: SelectionDto[] };
 }
 

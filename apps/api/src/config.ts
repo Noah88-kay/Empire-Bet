@@ -19,7 +19,13 @@ const envSchema = z.object({
   MPESA_B2C_SECURITY_CREDENTIAL: z.string().optional(),
   MPESA_CALLBACK_BASE_URL: z.string().optional(),
   MPESA_CALLBACK_SECRET: z.string().min(8),
-  SMS_MODE: z.enum(['console']).default('console')
+  SMS_MODE: z.enum(['console']).default('console'),
+  // Live fixtures/scores/odds. "off" leaves events to manual entry in the back office.
+  FEED_MODE: z.enum(['espn', 'off']).default('espn'),
+  FEED_LEAGUES: z.string().default('eng.1,esp.1,ita.1,ger.1,fra.1,uefa.champions,uefa.europa,ken.1'),
+  FEED_DAYS_AHEAD: z.coerce.number().int().min(0).max(14).default(7),
+  FEED_LIVE_INTERVAL_S: z.coerce.number().int().min(15).default(30),
+  FEED_FULL_INTERVAL_S: z.coerce.number().int().min(60).default(600)
 });
 
 const parsed = envSchema.safeParse(process.env);

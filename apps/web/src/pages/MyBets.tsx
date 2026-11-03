@@ -54,7 +54,13 @@ export function MyBets() {
             <div className="row" style={{ borderTop: '1px dashed var(--line-2)', paddingTop: 10 }}>
               <span className="muted">Stake {formatKes(b.stakeCents)} · odds {b.totalOdds.toFixed(2)}</span>
               <strong className="num" style={{ color: b.status === 'won' ? 'var(--win)' : undefined }}>
-                {b.status === 'won' ? `Paid ${formatKes(b.payoutCents ?? 0)}` : b.status === 'lost' ? 'No return' : `Returns ${formatKes(b.potentialPayoutCents)}`}
+                {b.status === 'won'
+                  ? `Paid ${formatKes(b.payoutCents ?? 0)}`
+                  : b.status === 'void'
+                    ? `Refunded ${formatKes(b.payoutCents ?? b.stakeCents)}`
+                    : b.status === 'lost'
+                      ? 'No return'
+                      : `Returns ${formatKes(b.potentialPayoutCents)}`}
               </strong>
             </div>
           </article>

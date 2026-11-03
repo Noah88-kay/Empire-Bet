@@ -97,20 +97,35 @@ model Payment {
 }
 
 model Event {
-  id        String   @id @default(cuid())
-  sport     String
-  league    String
-  home      String
-  away      String
-  startsAt  DateTime
-  status    String   @default("scheduled") // scheduled | live | finished | cancelled
-  minute    Int?
-  homeScore Int?
-  awayScore Int?
-  featured  Boolean  @default(false)
-  markets   Market[]
+  id            String    @id @default(cuid())
+  source        String    @default("manual") // manual | espn
+  externalId    String?   @unique // "<source>:<id>"
+  sport         String
+  league        String
+  leagueCode    String?
+  home          String
+  away          String
+  startsAt      DateTime
+  status        String    @default("scheduled") // scheduled | live | finished | cancelled
+  minute        Int?
+  clock         String? // feed display clock, e.g. "45'+2'", "HT", "FT"
+  homeScore     Int?
+  awayScore     Int?
+  featured      Boolean   @default(false)
+  oddsSource    String?
+  oddsUpdatedAt DateTime?
+  syncedAt      DateTime?
+  markets       Market[]
 
   @@index([status, startsAt])
+}
+
+model FeedState {
+  id          String    @id // e.g. "espn"
+  lastRunAt   DateTime?
+  lastOkAt    DateTime?
+  lastError   String?
+  eventsSeen  Int       @default(0)
 }
 
 model Market {

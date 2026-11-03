@@ -8,9 +8,10 @@
     "start": "node --env-file=.env --import tsx src/index.ts",
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
+    "postinstall": "prisma generate",
     "db:push": "prisma db push",
     "db:seed": "tsx --env-file=.env prisma/seed.ts",
-    "test": "tsx --env-file=.env --test src/**/*.test.ts"
+    "test": "node scripts/test.mjs"
   },
   "dependencies": {
     "@empire/shared": "*",

@@ -115,7 +115,16 @@ adminRouter.post(
 adminRouter.get(
   '/events',
   route(async (_req, res) => {
-    const events = await prisma.event.findMany({ where: { status: { in: ['scheduled', 'live'] } }, orderBy: { startsAt: 'asc' } });
+    // Upcoming/live, plus finished matches the feed couldn't grade (extra time / penalties).
+    const events = await prisma.event.findMany({
+      where: {
+        OR: [
+          { status: { in: ['scheduled', 'live'] }, startsAt: { lte: new Date(Date.now() + 2 * 86400_000) } },
+          { status: 'finished', markets: { some: { status: { not: 'settled' } } } }
+        ]
+      },
+      orderBy: { startsAt: 'asc' }
+    });
     const liabilities = await Promise.all(
       events.map(async (e) => {
         const agg = await prisma.bet.aggregate({
