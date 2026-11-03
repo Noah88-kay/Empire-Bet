@@ -1,0 +1,19 @@
+{
+  "name": "empire-bet",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c yellow,cyan \"npm run dev -w @empire/api\" \"npm run dev -w @empire/web\"",
+    "build": "npm run build -w @empire/api && npm run build -w @empire/web",
+    "typecheck": "npm run typecheck -w @empire/api && npm run typecheck -w @empire/web",
+    "db:setup": "npm run db:push -w @empire/api && npm run db:seed -w @empire/api",
+    "test": "npm test -w @empire/api"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}

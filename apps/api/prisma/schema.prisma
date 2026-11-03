@@ -1,0 +1,202 @@
+// Money is always stored as integer cents (KES * 100).
+// Statuses are strings so the schema works on SQLite (dev) and PostgreSQL (prod).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                      String    @id @default(cuid())
+  name                    String
+  phone                   String    @unique
+  email                   String?   @unique
+  passwordHash            String
+  dateOfBirth             DateTime
+  nationalId              String
+  phoneVerified           Boolean   @default(false)
+  kycStatus               String    @default("pending") // pending | verified | rejected
+  role                    String    @default("player") // player | finance | admin
+  status                  String    @default("active") // active | suspended
+  tokenVersion            Int       @default(0)
+  weeklyDepositLimitCents Int?
+  selfExcludedUntil       DateTime?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  wallet     Wallet?
+  otps       OtpCode[]
+  payments   Payment[]
+  bets       Bet[]
+  gameRounds GameRound[]
+  seedPair   SeedPair?
+}
+
+model OtpCode {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose   String // verify_phone
+  codeHash  String
+  attempts  Int       @default(0)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, purpose])
+}
+
+model Wallet {
+  userId       String        @id
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  balanceCents Int           @default(0)
+  bonusCents   Int           @default(0)
+  updatedAt    DateTime      @updatedAt
+  entries      LedgerEntry[]
+}
+
+/// Append-only. Every balance change is one row; balanceAfter makes reconciliation trivial.
+model LedgerEntry {
+  id           String   @id @default(cuid())
+  walletId     String
+  wallet       Wallet   @relation(fields: [walletId], references: [userId])
+  amountCents  Int // signed: + credit, - debit
+  balanceAfter Int
+  kind         String // deposit | withdrawal | withdrawal_refund | bet_stake | bet_win | bet_void | game_stake | game_win | adjustment
+  refType      String?
+  refId        String?
+  note         String?
+  createdAt    DateTime @default(now())
+
+  @@index([walletId, createdAt])
+  @@index([refType, refId])
+}
+
+model Payment {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id])
+  type              String // deposit | withdrawal
+  amountCents       Int
+  phone             String
+  status            String // initiated | pending_review | processing | completed | failed | held | rejected
+  checkoutRequestId String?  @unique
+  conversationId    String?  @unique
+  mpesaReceipt      String?  @unique
+  failureReason     String?
+  reviewedBy        String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([type, status])
+}
+
+model Event {
+  id        String   @id @default(cuid())
+  sport     String
+  league    String
+  home      String
+  away      String
+  startsAt  DateTime
+  status    String   @default("scheduled") // scheduled | live | finished | cancelled
+  minute    Int?
+  homeScore Int?
+  awayScore Int?
+  featured  Boolean  @default(false)
+  markets   Market[]
+
+  @@index([status, startsAt])
+}
+
+model Market {
+  id         String      @id @default(cuid())
+  eventId    String
+  event      Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  type       String // 1X2
+  status     String      @default("open") // open | suspended | settled
+  selections Selection[]
+}
+
+model Selection {
+  id       String   @id @default(cuid())
+  marketId String
+  market   Market   @relation(fields: [marketId], references: [id], onDelete: Cascade)
+  code     String // 1 | X | 2
+  label    String
+  odds     Float
+  result   String   @default("pending") // pending | won | lost | void
+  legs     BetLeg[]
+}
+
+model Bet {
+  id                   String    @id @default(cuid())
+  ticket               String    @unique
+  userId               String
+  user                 User      @relation(fields: [userId], references: [id])
+  stakeCents           Int
+  totalOdds            Float
+  potentialPayoutCents Int
+  payoutCents          Int?
+  status               String    @default("open") // open | won | lost | void
+  createdAt            DateTime  @default(now())
+  settledAt            DateTime?
+  legs                 BetLeg[]
+
+  @@index([userId, createdAt])
+  @@index([status])
+}
+
+model BetLeg {
+  id          String    @id @default(cuid())
+  betId       String
+  bet         Bet       @relation(fields: [betId], references: [id], onDelete: Cascade)
+  selectionId String
+  selection   Selection @relation(fields: [selectionId], references: [id])
+  odds        Float
+  result      String    @default("pending")
+
+  @@index([selectionId])
+}
+
+/// Provably fair seeds. The hash of serverSeed is shown before play; the seed is revealed on rotation.
+model SeedPair {
+  userId         String @id
+  user           User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  serverSeed     String
+  serverSeedHash String
+  clientSeed     String
+  nonce          Int    @default(0)
+}
+
+model GameRound {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  game           String // dice | coin
+  stakeCents     Int
+  payoutCents    Int
+  serverSeedHash String
+  clientSeed     String
+  nonce          Int
+  outcome        String // JSON
+  createdAt      DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  actor     String // username / system
+  action    String
+  target    String?
+  meta      String? // JSON
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
